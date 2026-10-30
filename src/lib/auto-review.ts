@@ -1,4 +1,4 @@
-import { publishContentGroup, rejectContentGroup } from './db';
+import { publishContentGroup, rejectContentGroup, unpublishContentGroup } from './db';
 
 /**
  * Automatic editorial desk.
@@ -49,7 +49,11 @@ export type AutoReviewResult = {
   published: number;
   rejected: number;
   decisions: AutoReviewDecision[];
+  replaced: { newId: string; archivedId: string; archivedSlug: string; category: string }[];
 };
+
+/** How long a published article stays current, per category (matches source freshness rules). */
+const EXPIRY_DAYS: Record<string, number> = { news: 7, prompts: 90, resources: 120, tools: 180, research: 180 };
 
 function hoursSince(sqliteTimestamp: string): number {
   // D1 CURRENT_TIMESTAMP is "YYYY-MM-DD HH:MM:SS" in UTC.
@@ -115,7 +119,7 @@ async function logEvent(db: D1Database, type: string, id: string, detail: Record
 }
 
 export async function runAutoReview(db: D1Database | undefined, limit = DEFAULT_DAILY_PUBLISH_LIMIT): Promise<AutoReviewResult> {
-  const result: AutoReviewResult = { limit, alreadyPublishedToday: 0, published: 0, rejected: 0, decisions: [] };
+  const result: AutoReviewResult = { limit, alreadyPublishedToday: 0, published: 0, rejected: 0, decisions: [], replaced: [] };
   if (!db) return result;
 
   const candidates = await loadCandidates(db);
@@ -152,6 +156,28 @@ export async function runAutoReview(db: D1Database | undefined, limit = DEFAULT_
       result.rejected += 1;
       result.decisions.push({ id: c.id, slug: c.slug, category: c.category, score: c.score, action: 'rejected', reason });
       await logEvent(db, 'auto_reject', c.id, { score: c.score, reason });
+    }
+  }
+
+  // Replace expired articles: each newly published article retires the oldest expired
+  // published article in the same category (archived, reversible via admin).
+  const newIds = new Set(result.decisions.filter((d) => d.action === 'published').map((d) => d.id));
+  for (const d of result.decisions) {
+    if (d.action !== 'published') continue;
+    const days = EXPIRY_DAYS[d.category] ?? 180;
+    const old = await db
+      .prepare(
+        `SELECT id, canonical_slug FROM content_groups
+          WHERE status = 'published' AND category = ? AND published_at < datetime('now', ?)
+          ORDER BY published_at ASC LIMIT 1`,
+      )
+      .bind(d.category, `-${days} days`)
+      .first<Record<string, unknown>>();
+    if (!old || newIds.has(String(old.id))) continue;
+    const un = await unpublishContentGroup(db, String(old.id));
+    if (un.ok) {
+      result.replaced.push({ newId: d.id, archivedId: String(old.id), archivedSlug: String(old.canonical_slug), category: d.category });
+      await logEvent(db, 'auto_replace_expired', String(old.id), { replacedBy: d.id, expiryDays: days });
     }
   }
 

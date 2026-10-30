@@ -22,6 +22,8 @@ type GenerationOptions = {
   topic?: string;
   category?: Category;
   dryRun?: boolean;
+  /** Only consider feed candidates from the last N days (batch mode). */
+  windowDays?: number;
 };
 
 type GeneratedArticle = {
@@ -337,7 +339,7 @@ async function generateSingleCategory(
   db: D1Database | undefined,
   options: GenerationOptions & { category: Exclude<Category, 'personal'> },
 ): Promise<GenerationResult> {
-  const normalizedDraft = await generateDraft(config, options.category, options.topic, db);
+  const normalizedDraft = await generateDraft(config, options.category, options.topic, db, options.windowDays);
 
   if (options.dryRun || !db) {
     return {
@@ -402,9 +404,9 @@ async function generateAllCategories(config: VertexAIConfig, db: D1Database | un
   };
 }
 
-async function generateDraft(config: VertexAIConfig, category: Exclude<Category, 'personal'>, topic?: string, db?: D1Database): Promise<GeneratedDraft> {
+async function generateDraft(config: VertexAIConfig, category: Exclude<Category, 'personal'>, topic?: string, db?: D1Database, windowDays?: number): Promise<GeneratedDraft> {
   const existingSlugs = db ? await getExistingSlugs(db, category) : [];
-  const facts = await generateFactPack(config, category, topic, existingSlugs);
+  const facts = await generateFactPack(config, category, topic, existingSlugs, windowDays);
 
   if (facts.canonicalSlug && existingSlugs.some(s => s === facts.canonicalSlug || facts.canonicalSlug!.includes(s) || s.includes(facts.canonicalSlug!))) {
     throw new Error(`Duplicate topic detected: "${facts.canonicalSlug}" overlaps with an existing article. Skipping.`);
@@ -434,7 +436,7 @@ function getModelForCategory(category: Exclude<Category, 'personal'>): string {
   return 'gemini-3.6-flash';
 }
 
-async function generateFactPack(config: VertexAIConfig, category: Exclude<Category, 'personal'>, topic?: string, existingSlugs: string[] = []): Promise<FactPack> {
+async function generateFactPack(config: VertexAIConfig, category: Exclude<Category, 'personal'>, topic?: string, existingSlugs: string[] = [], windowDays?: number): Promise<FactPack> {
   const categoryConfig = CATEGORY_CONFIGS[category];
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' });
   const freshnessWindow = getFreshnessWindow(category);
@@ -444,7 +446,8 @@ async function generateFactPack(config: VertexAIConfig, category: Exclude<Catego
     : `- STRONGLY PREFER to also include at least one primary source from X/Twitter or Reddit, GitHub or Hugging Face, or a well-known individual AI researcher's blog, alongside news outlets.`;
   let candidateBlock = '';
   if (config.apiKey) {
-    const candidates = await fetchCandidateSources(category, getOldestAllowedSourceDate(category));
+    const oldest = windowDays ? new Date(Date.now() - windowDays * 86_400_000) : getOldestAllowedSourceDate(category);
+    const candidates = await fetchCandidateSources(category, oldest);
     if (candidates.length === 0) {
       throw new Error(`No fresh candidate sources found in feeds for ${category}.`);
     }

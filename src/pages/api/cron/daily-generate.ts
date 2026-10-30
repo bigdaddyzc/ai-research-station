@@ -47,15 +47,22 @@ export const GET: APIRoute = async ({ locals, url, request }) => {
   const category = categoryParam && categories.includes(categoryParam) ? categoryParam : undefined;
   try {
     const dryRun = url.searchParams.get('dryRun') === '1';
+    // reviewOnly=1: skip generation and just run the auto-review (used after a batch).
+    if (url.searchParams.get('reviewOnly') === '1') {
+      const limit = Number(url.searchParams.get('publishLimit')) || DEFAULT_DAILY_PUBLISH_LIMIT;
+      const review = await runAutoReview(runtimeEnv.DB, limit);
+      return new Response(JSON.stringify(review, null, 2), { headers: { 'content-type': 'application/json; charset=utf-8' } });
+    }
     const result: GenerationResult & { autoReview?: unknown } = await runDailyGeneration(runtimeEnv, {
       topic: url.searchParams.get('topic') ?? undefined,
       category,
       dryRun,
+      windowDays: Number(url.searchParams.get('windowDays')) || undefined,
     });
 
     // Auto-review: publish the best drafts (max N per day) and reject the rest.
     if (!dryRun && url.searchParams.get('autoReview') !== '0' && runtimeEnv.AUTO_REVIEW !== 'off') {
-      const limit = Number(runtimeEnv.AUTO_PUBLISH_DAILY_LIMIT ?? DEFAULT_DAILY_PUBLISH_LIMIT) || DEFAULT_DAILY_PUBLISH_LIMIT;
+      const limit = Number(url.searchParams.get('publishLimit')) || Number(runtimeEnv.AUTO_PUBLISH_DAILY_LIMIT ?? DEFAULT_DAILY_PUBLISH_LIMIT) || DEFAULT_DAILY_PUBLISH_LIMIT;
       try {
         result.autoReview = await runAutoReview(runtimeEnv.DB, limit);
       } catch (reviewError) {
