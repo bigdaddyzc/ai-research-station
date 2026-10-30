@@ -8,7 +8,11 @@ interface Props {
   lang?: UiLanguage;
 }
 
-const { title = 'ACP AI Research', description = 'Bilingual AI research and intelligence website.', lang = 'zh' } = Astro.props;
+const defaultDescription = Astro.props.lang === 'en'
+  ? 'Daily AI news, tools, research, free resources and prompt workflows, with cited sources.'
+  : '每日精选 AI 新闻、工具、研究、免费资源与提示词工作流，每篇都附可靠来源。';
+const { title = 'ACP AI Research', description = defaultDescription, lang = 'zh' } = Astro.props;
+const siteUrl = 'https://acp.dpdns.org';
 const t = ui[lang];
 const otherLang = lang === 'zh' ? 'en' : 'zh';
 const currentPath = Astro.url.pathname;
@@ -21,6 +25,22 @@ const otherPath = currentPath.startsWith('/zh') ? currentPath.replace('/zh', '/e
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
     <title>{title}</title>
+    <link rel="canonical" href={`${siteUrl}${currentPath === '/' ? '/zh' : currentPath}`} />
+    {(currentPath.startsWith('/zh') || currentPath.startsWith('/en') || currentPath === '/') && (
+      <>
+        <link rel="alternate" hreflang="zh-CN" href={`${siteUrl}${currentPath.startsWith('/en') ? currentPath.replace('/en', '/zh') : currentPath === '/' ? '/zh' : currentPath}`} />
+        <link rel="alternate" hreflang="en" href={`${siteUrl}${currentPath.startsWith('/zh') ? currentPath.replace('/zh', '/en') : currentPath === '/' ? '/en' : currentPath}`} />
+        <link rel="alternate" hreflang="x-default" href={`${siteUrl}/zh`} />
+      </>
+    )}
+    <link rel="alternate" type="application/rss+xml" title="ACP AI Research" href={`${siteUrl}/rss.xml`} />
+    <meta property="og:site_name" content="ACP AI Research" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={`${siteUrl}${currentPath}`} />
+    <meta property="og:type" content={currentPath.split('/').length > 3 ? 'article' : 'website'} />
+    <meta property="og:locale" content={lang === 'zh' ? 'zh_CN' : 'en_US'} />
+    <meta name="twitter:card" content="summary" />
   </head>
   <body>
     <header class="topbar">
