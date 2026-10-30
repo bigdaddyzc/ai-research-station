@@ -1,6 +1,8 @@
 import type { APIRoute } from 'astro';
 import { getRuntimeEnv } from '../../../lib/env';
-import { runDailyGeneration } from '../../../lib/generation';
+import { runDailyGeneration, type GenerationResult } from '../../../lib/generation';
+import { isAdminAuthenticated } from '../../../lib/auth';
+import { DEFAULT_DAILY_PUBLISH_LIMIT, runAutoReview } from '../../../lib/auto-review';
 import type { Category } from '../../../lib/types';
 
 const categories: Category[] = ['tools', 'news', 'resources', 'research', 'prompts', 'personal'];
@@ -30,15 +32,36 @@ async function runLocalFallback(url: URL): Promise<Response> {
   });
 }
 
-export const GET: APIRoute = async ({ locals, url }) => {
+export const GET: APIRoute = async ({ locals, url, request }) => {
+  const runtimeEnv = await getRuntimeEnv(locals);
+  // Only the scheduled trigger (x-cron-secret header) or a logged-in admin may run generation.
+  if (!isLocalRequest(url)) {
+    const cronSecret = runtimeEnv.CRON_SECRET;
+    const fromCron = Boolean(cronSecret) && request.headers.get('x-cron-secret') === cronSecret;
+    if (!fromCron && !(await isAdminAuthenticated(request, runtimeEnv.ADMIN_PASSWORD))) {
+      return new Response('Unauthorized', { status: 401 });
+    }
+  }
+
   const categoryParam = url.searchParams.get('category') as Category | null;
   const category = categoryParam && categories.includes(categoryParam) ? categoryParam : undefined;
   try {
-    const result = await runDailyGeneration(await getRuntimeEnv(locals), {
+    const dryRun = url.searchParams.get('dryRun') === '1';
+    const result: GenerationResult & { autoReview?: unknown } = await runDailyGeneration(runtimeEnv, {
       topic: url.searchParams.get('topic') ?? undefined,
       category,
-      dryRun: url.searchParams.get('dryRun') === '1',
+      dryRun,
     });
+
+    // Auto-review: publish the best drafts (max N per day) and reject the rest.
+    if (!dryRun && url.searchParams.get('autoReview') !== '0' && runtimeEnv.AUTO_REVIEW !== 'off') {
+      const limit = Number(runtimeEnv.AUTO_PUBLISH_DAILY_LIMIT ?? DEFAULT_DAILY_PUBLISH_LIMIT) || DEFAULT_DAILY_PUBLISH_LIMIT;
+      try {
+        result.autoReview = await runAutoReview(runtimeEnv.DB, limit);
+      } catch (reviewError) {
+        result.autoReview = { error: reviewError instanceof Error ? reviewError.message : String(reviewError) };
+      }
+    }
 
     if (shouldUseLocalFallback(result, url)) {
       return runLocalFallback(url);
