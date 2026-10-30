@@ -13,6 +13,7 @@ export type AppEnv = {
   GOOGLE_SA_KEY_JSON?: string;
   GOOGLE_APPLICATION_CREDENTIALS?: string;
   CRON_SECRET?: string;
+  GEMINI_MODEL?: string;
   AUTO_REVIEW?: string;
   AUTO_PUBLISH_DAILY_LIMIT?: string;
 };
