@@ -24,7 +24,11 @@ type GenerationOptions = {
   dryRun?: boolean;
   /** Only consider feed candidates from the last N days (batch mode). */
   windowDays?: number;
+  /** Drafts to generate per category in an all-categories run. */
+  perCategory?: number;
 };
+
+const DRAFTS_PER_CATEGORY = 2;
 
 type GeneratedArticle = {
   language: Language;
@@ -367,25 +371,35 @@ async function generateAllCategories(config: VertexAIConfig, db: D1Database | un
     | { category: Exclude<Category, 'personal'>; error: string }
   > = [];
 
-  for (const category of GENERATION_CATEGORIES) {
-    try {
-      const normalizedDraft = await generateDraft(config, category, options.topic, db);      let contentGroupId: string | undefined;
-      if (!options.dryRun && db) {
-        contentGroupId = await saveDraft(db, normalizedDraft);
+  // Each category runs in parallel and keeps trying until it has DRAFTS_PER_CATEGORY
+  // drafts (or runs out of attempts). 5 categories x 2 = 10 drafts per day.
+  const perCategory = options.perCategory ?? DRAFTS_PER_CATEGORY;
+  const maxAttempts = perCategory * 2 + 1;
+  await Promise.all(
+    GENERATION_CATEGORIES.map(async (category) => {
+      let made = 0;
+      for (let attempt = 0; attempt < maxAttempts && made < perCategory; attempt++) {
+        try {
+          const normalizedDraft = await generateDraft(config, category, options.topic, db, options.windowDays);
+          let contentGroupId: string | undefined;
+          if (!options.dryRun && db) {
+            contentGroupId = await saveDraft(db, normalizedDraft);
+          }
+          results.push({ category, draft: normalizedDraft, contentGroupId });
+          made++;
+        } catch (error) {
+          results.push({ category, error: formatGenerationError(error) });
+        }
       }
-
-      results.push({ category, draft: normalizedDraft, contentGroupId });
-    } catch (error) {
-      results.push({ category, error: formatGenerationError(error) });
-    }
-  }
+    }),
+  );
 
   const successful = results.filter((result): result is Extract<typeof result, { draft: GeneratedDraft }> => 'draft' in result);
   const failed = results.filter((result): result is Extract<typeof result, { error: string }> => 'error' in result);
   const totalArticles = successful.reduce((sum, result) => sum + result.draft.articles.length, 0);
   const contentGroupIds = successful.map((result) => result.contentGroupId).filter(Boolean) as string[];
 
-  let message = `Generated ${successful.length}/${GENERATION_CATEGORIES.length} categories with ${totalArticles} articles total.`;
+  let message = `Generated ${successful.length}/${GENERATION_CATEGORIES.length * perCategory} drafts with ${totalArticles} articles total.`;
   if (failed.length > 0) {
     message += ` Failed: ${failed.map((result) => `${result.category} (${result.error})`).join(', ')}.`;
   }

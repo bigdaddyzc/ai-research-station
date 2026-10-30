@@ -38,6 +38,7 @@ type Candidate = {
   avgReliability: number;
   verifiedShare: number;
   score: number;
+  primaryUrl: string;
   gateFailure?: string;
 };
 
@@ -71,7 +72,8 @@ async function loadCandidates(db: D1Database): Promise<Candidate[]> {
                 (SELECT MAX(LENGTH(content_markdown)) FROM articles WHERE content_group_id = g.id AND language = 'en') AS en_len,
                 (SELECT COUNT(*) FROM sources WHERE content_group_id = g.id) AS source_count,
                 (SELECT AVG(reliability_score) FROM sources WHERE content_group_id = g.id) AS avg_rel,
-                (SELECT AVG(CASE WHEN grounding_verified = 1 THEN 1.0 ELSE 0.0 END) FROM sources WHERE content_group_id = g.id) AS verified_share
+                (SELECT AVG(CASE WHEN grounding_verified = 1 THEN 1.0 ELSE 0.0 END) FROM sources WHERE content_group_id = g.id) AS verified_share,
+                (SELECT url FROM sources WHERE content_group_id = g.id ORDER BY rowid LIMIT 1) AS primary_url
            FROM content_groups g
           WHERE g.status IN ('draft', 'needs_review') AND g.category != 'personal'
           ORDER BY g.created_at DESC`,
@@ -93,6 +95,7 @@ async function loadCandidates(db: D1Database): Promise<Candidate[]> {
       avgReliability: Number(row.avg_rel ?? 0),
       verifiedShare: Number(row.verified_share ?? 0),
       score: 0,
+      primaryUrl: String(row.primary_url ?? ''),
     };
     c.score = Math.round(0.45 * c.sourceQuality + 0.3 * c.heat + 0.15 * c.avgReliability + 10 * c.verifiedShare);
 
@@ -132,13 +135,27 @@ export async function runAutoReview(db: D1Database | undefined, limit = DEFAULT_
   const firstPass = eligible.filter((c) => (seen.has(c.category) ? false : (seen.add(c.category), true)));
   const ordered = [...firstPass, ...eligible.filter((c) => !firstPass.includes(c))];
 
+  // Topics already covered: primary sources of everything published in the last 14 days.
+  const usedUrls = new Set(
+    ((await db
+      .prepare(`SELECT s.url FROM sources s JOIN content_groups g ON g.id = s.content_group_id
+                 WHERE g.status = 'published' AND g.published_at > datetime('now', '-14 days')`)
+      .all<Record<string, unknown>>()).results ?? []).map((r) => String(r.url)),
+  );
+
   const handled = new Set<string>();
   for (const c of ordered) {
     if (slots <= 0) break;
+    if (c.primaryUrl && usedUrls.has(c.primaryUrl)) {
+      c.gateFailure = 'duplicate topic (primary source already covered)';
+      continue;
+    }
     const pub = await publishContentGroup(db, c.id);
     handled.add(c.id);
     if (pub.ok) {
       slots -= 1;
+      const urls = (await db.prepare('SELECT url FROM sources WHERE content_group_id = ?').bind(c.id).all<Record<string, unknown>>()).results ?? [];
+      for (const r of urls) usedUrls.add(String(r.url));
       result.published += 1;
       result.decisions.push({ id: c.id, slug: c.slug, category: c.category, score: c.score, action: 'published', reason: `score ${c.score}` });
       await logEvent(db, 'auto_publish', c.id, { score: c.score });
