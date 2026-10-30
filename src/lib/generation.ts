@@ -582,6 +582,13 @@ Rules:
 - Mention source publisher and publication date in the final Sources/参考来源 section.
 - Chinese and English should convey the same facts naturally, not as literal translations.
 - Keep claims cautious when sources are not definitive.
+- Answer first: the first paragraph of each article must directly answer "what happened / what is it, and why it matters to an AI developer or user" in 1-2 sentences (40-80 Chinese characters / 30-60 English words) so search engines and AI assistants can quote it.
+- Add original value beyond the sources: a practical takeaway, who should care, what to do next, or a comparison with alternatives. Never just paraphrase the source.
+- Where the topic has comparable items, numbers, prices, limits, versions or steps, include one compact Markdown table (header row, separator row, then rows). Keep tables to at most 5 columns.
+- Use concrete, quotable facts: exact numbers with units, version names, and dates written as "截至 YYYY年M月" / "As of Month YYYY".
+- Where natural, phrase section headings as the question a reader would search (e.g. "### 它是什么？", "### How do I use it?").
+- summary must be a self-contained 1-2 sentence answer, not a teaser.
+- seoTitle should contain the main keyword people would search, not a clever headline.
 - Return only the JSON object. No markdown fences.
 
 Markdown formatting rules for contentMarkdown:

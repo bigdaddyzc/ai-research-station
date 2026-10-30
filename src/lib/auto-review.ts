@@ -19,7 +19,7 @@ import { publishContentGroup, rejectContentGroup, unpublishContentGroup } from '
  * Selection prefers one article per category before filling remaining slots by score.
  */
 
-export const DEFAULT_DAILY_PUBLISH_LIMIT = 5;
+export const DEFAULT_DAILY_PUBLISH_LIMIT = 3;
 const MIN_SOURCE_QUALITY = 60;
 const MIN_ZH_BODY_CHARS = 600;
 const MIN_EN_BODY_CHARS = 1200;

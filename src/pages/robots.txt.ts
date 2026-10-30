@@ -4,7 +4,7 @@ const trainingBots = ['GPTBot', 'CCBot', 'Google-Extended', 'Applebot-Extended',
 
 export const GET: APIRoute = () => {
   const body = `User-agent: *
-Content-Signal: search=yes,ai-train=no,use=reference
+Content-Signal: search=yes,ai-input=yes,ai-train=no
 Allow: /
 
 ${trainingBots.map((bot) => `User-agent: ${bot}`).join('\n')}

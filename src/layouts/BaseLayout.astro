@@ -40,7 +40,12 @@ const otherPath = currentPath.startsWith('/zh') ? currentPath.replace('/zh', '/e
     <meta property="og:url" content={`${siteUrl}${currentPath}`} />
     <meta property="og:type" content={currentPath.split('/').length > 3 ? 'article' : 'website'} />
     <meta property="og:locale" content={lang === 'zh' ? 'zh_CN' : 'en_US'} />
-    <meta name="twitter:card" content="summary" />
+    <meta property="og:image" content={`${siteUrl}/og-default.png`} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content={`${siteUrl}/og-default.png`} />
+    <link rel="alternate" type="text/plain" title="llms.txt" href={`${siteUrl}/llms.txt`} />
   </head>
   <body>
     <header class="topbar">
@@ -69,7 +74,7 @@ const otherPath = currentPath.startsWith('/zh') ? currentPath.replace('/zh', '/e
     <footer class="footer">
       <div class="shell footer-inner">
         <span>{t.footer}</span>
-        <span>Sources · RSS · Sitemap · Privacy</span>
+        <span class="footer-links"><a href={`/${lang}/about`}>{lang === 'zh' ? '关于' : 'About'}</a> · <a href="/rss.xml">RSS</a> · <a href="/sitemap.xml">Sitemap</a> · <a href="/llms.txt">llms.txt</a> · <a href="/privacy">{lang === 'zh' ? '隐私' : 'Privacy'}</a></span>
       </div>
     </footer>
   </body>

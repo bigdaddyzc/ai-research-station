@@ -44,14 +44,16 @@ const todayText = lang === 'zh'
   <main>
     <section class="hero" id="today">
       <div class="shell">
+        <p class="value-prop">{lang === 'zh' ? '每天 5 分钟，看懂 AI 圈真正重要的变化：新闻、工具、研究、免费资源和可直接复用的提示词，每篇都附原始来源。' : 'Five minutes a day to keep up with what actually matters in AI: news, tools, research, free resources and reusable prompts, each with original sources.'}</p>
+        <p class="subscribe-row"><a class="pill-btn" href="/rss.xml">{lang === 'zh' ? 'RSS 订阅' : 'Subscribe via RSS'}</a> <a class="pill-btn" href={`/${lang}/about`}>{lang === 'zh' ? '关于本站' : 'About'}</a></p>
         <div class="kicker"><span class="live-dot"></span><span>{todayText} · {t.reviewed} · {t.bilingual}</span></div>
         <div class="hero-grid">
           <article class="lead-panel">
             <div class="lead-copy">
               <div class="lead-meta">
                 <span class="tag teal">{categoryLabels[lang][lead?.category as keyof typeof categoryLabels['zh']] ?? t.news}</span>
-                <span class="tag amber">{lead?.sourceQualityScore ?? 0} quality</span>
-                <span class="tag red">Heat {lead?.heatScore ?? 0}</span>
+                <span class="tag amber">{lang === 'zh' ? '可信度' : 'Reliability'} {lead?.sourceQualityScore ?? 0}</span>
+                <span class="tag red">{lang === 'zh' ? '热度' : 'Heat'} {lead?.heatScore ?? 0}</span>
               </div>
               <h1>{lead?.title}</h1>
               <p>{lead?.summary}</p>
@@ -119,7 +121,7 @@ const todayText = lang === 'zh'
           {news.map((item) => (
             <article class="news-row">
               <div><h3><a href={`/${lang}/${item.category}/${item.slug}`}>{item.title}</a></h3><p>{item.summary}</p></div>
-              <span class="tag red">Heat {item.heatScore}</span>
+              <span class="tag red">{lang === 'zh' ? '热度' : 'Heat'} {item.heatScore}</span>
             </article>
           ))}
         </div>

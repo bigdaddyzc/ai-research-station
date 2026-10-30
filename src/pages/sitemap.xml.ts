@@ -21,7 +21,7 @@ export const GET: APIRoute = async ({ locals }) => {
         .prepare(
           `SELECT a.language, a.slug, g.id AS gid, g.category, COALESCE(g.published_at, g.created_at) AS d
              FROM articles a JOIN content_groups g ON g.id = a.content_group_id
-            WHERE g.status = 'published' AND g.category != 'personal'
+            WHERE g.status IN ('published', 'archived') AND g.category != 'personal'
             ORDER BY d DESC LIMIT 2000`,
         )
         .all<Record<string, unknown>>()
