@@ -63,6 +63,18 @@ export const GET: APIRoute = async ({ locals, url, request }) => {
       }
     }
 
+    // Persist a run log so failed/empty cron runs are visible in D1 (generation_jobs).
+    if (!dryRun && runtimeEnv.DB) {
+      try {
+        await runtimeEnv.DB
+          .prepare("INSERT INTO generation_jobs (id, job_type, status, started_at, finished_at, model_provider, input_summary, error_message) VALUES (?, 'daily_run', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'vertex-ai', ?, ?)")
+          .bind(crypto.randomUUID(), result.createdDrafts > 0 ? 'completed' : 'failed', JSON.stringify(result.autoReview ? { autoReview: { published: (result.autoReview as { published?: number }).published, rejected: (result.autoReview as { rejected?: number }).rejected } } : {}), result.message.slice(0, 2000))
+          .run();
+      } catch (logError) {
+        console.error('[cron] failed to log run', logError);
+      }
+    }
+
     if (shouldUseLocalFallback(result, url)) {
       return runLocalFallback(url);
     }
@@ -93,6 +105,15 @@ export const GET: APIRoute = async ({ locals, url, request }) => {
           },
         );
       }
+    }
+
+    if (runtimeEnv.DB) {
+      try {
+        await runtimeEnv.DB
+          .prepare("INSERT INTO generation_jobs (id, job_type, status, started_at, finished_at, model_provider, error_message) VALUES (?, 'daily_run', 'failed', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'vertex-ai', ?)")
+          .bind(crypto.randomUUID(), (error instanceof Error ? error.message : String(error)).slice(0, 2000))
+          .run();
+      } catch {}
     }
 
     return new Response(
