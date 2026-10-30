@@ -1,3 +1,4 @@
+import { postPublishedToTelegram } from '../../../lib/telegram';
 import type { APIRoute } from 'astro';
 import { getRuntimeEnv } from '../../../lib/env';
 import { runDailyGeneration, type GenerationResult } from '../../../lib/generation';
@@ -64,7 +65,14 @@ export const GET: APIRoute = async ({ locals, url, request }) => {
     if (!dryRun && url.searchParams.get('autoReview') !== '0' && runtimeEnv.AUTO_REVIEW !== 'off') {
       const limit = Number(url.searchParams.get('publishLimit')) || Number(runtimeEnv.AUTO_PUBLISH_DAILY_LIMIT ?? DEFAULT_DAILY_PUBLISH_LIMIT) || DEFAULT_DAILY_PUBLISH_LIMIT;
       try {
-        result.autoReview = await runAutoReview(runtimeEnv.DB, limit);
+        const review = await runAutoReview(runtimeEnv.DB, limit);
+        result.autoReview = review;
+        const publishedIds = review.decisions.filter((d) => d.action === 'published').map((d) => d.id);
+        try {
+          (result as unknown as Record<string, unknown>).telegram = await postPublishedToTelegram(runtimeEnv, publishedIds);
+        } catch (tgError) {
+          (result as unknown as Record<string, unknown>).telegram = { error: tgError instanceof Error ? tgError.message : String(tgError) };
+        }
       } catch (reviewError) {
         result.autoReview = { error: reviewError instanceof Error ? reviewError.message : String(reviewError) };
       }

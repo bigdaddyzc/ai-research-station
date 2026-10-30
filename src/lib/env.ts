@@ -16,6 +16,8 @@ export type AppEnv = {
   GEMINI_MODEL?: string;
   AUTO_REVIEW?: string;
   AUTO_PUBLISH_DAILY_LIMIT?: string;
+  TELEGRAM_BOT_TOKEN?: string;
+  TELEGRAM_CHANNEL?: string;
 };
 
 export async function getRuntimeEnv(locals?: App.Locals): Promise<AppEnv> {
