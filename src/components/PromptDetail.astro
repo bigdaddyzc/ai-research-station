@@ -1,0 +1,150 @@
+---
+import { Check, Copy, ExternalLink, FileText, Workflow } from 'lucide-astro';
+import { categoryLabels, type UiLanguage } from '../lib/i18n';
+import { renderMarkdown } from '../lib/markdown';
+import { getPromptArtifact } from '../lib/prompt-artifact';
+import type { Article, Source } from '../lib/types';
+
+interface Props {
+  article: Article;
+  sources: Source[];
+  lang: UiLanguage;
+}
+
+const { article, sources, lang } = Astro.props;
+const artifact = getPromptArtifact(article);
+const articleBody = article.contentMarkdown.replace(
+  /(?:^|\n)#{2,4}\s+(?:核心提示词|完整提示词|core prompt|prompt template)[^\n]*\n[\s\S]*?(?=\n#{2,4}\s+|$)/i,
+  '',
+);
+const html = renderMarkdown(articleBody);
+const isWorkflow = artifact.kind === 'workflow';
+const labels = lang === 'zh'
+  ? {
+      prompt: '提示词', workflow: '工作流', copy: '复制提示词', copied: '已复制',
+      variables: '输入变量', noVariables: '无需替换变量', steps: '执行步骤',
+      source: '验证来源', sourceNote: '内容经来源核验，实际效果会随模型与上下文变化。',
+      published: '已发布', fallback: '请从下方正文中的“核心提示词”部分复制使用。',
+    }
+  : {
+      prompt: 'Prompt', workflow: 'Workflow', copy: 'Copy prompt', copied: 'Copied',
+      variables: 'Input variables', noVariables: 'No variables to replace', steps: 'Workflow steps',
+      source: 'Verification sources', sourceNote: 'Source-checked. Results can vary by model and context.',
+      published: 'Published', fallback: 'Copy the content from the Core Prompt section below.',
+    };
+---
+<section class="shell prompt-detail-layout">
+  <article class="prompt-detail-main">
+    <header class="prompt-detail-head">
+      <div class="lead-meta">
+        <span class:list={['artifact-kind', { workflow: isWorkflow }]}>
+          {isWorkflow ? <Workflow size={15} /> : <FileText size={15} />}
+          {isWorkflow ? labels.workflow : labels.prompt}
+        </span>
+        <span class="tag teal">{categoryLabels[lang][article.category]}</span>
+        <span class="tag">{labels.published}</span>
+      </div>
+      <h1>{article.title}</h1>
+      <p class="summary">{article.summary}</p>
+      <div class="prompt-detail-tags">
+        {article.tags.map((tag) => <span class="tag">{tag}</span>)}
+      </div>
+    </header>
+
+    <section class="prompt-workbench" aria-labelledby="prompt-workbench-title">
+      <div class="prompt-workbench-bar">
+        <div>
+          <span class="workbench-eyebrow">{isWorkflow ? labels.workflow : labels.prompt}</span>
+          <h2 id="prompt-workbench-title">{lang === 'zh' ? '核心提示词' : 'Core prompt'}</h2>
+        </div>
+        {artifact.copyText && (
+          <button
+            class="form-btn primary copy-prompt-button"
+            type="button"
+            data-copy-prompt
+            data-copy-label={labels.copy}
+            data-copied-label={labels.copied}
+            title={labels.copy}
+          >
+            <Copy size={16} />
+            <span>{labels.copy}</span>
+          </button>
+        )}
+      </div>
+      {artifact.copyText ? (
+        <pre class="prompt-copy-block"><code data-prompt-text>{artifact.copyText}</code></pre>
+      ) : (
+        <p class="prompt-fallback">{labels.fallback}</p>
+      )}
+    </section>
+
+    <div class="prompt-prose prose" set:html={html} />
+  </article>
+
+  <aside class="prompt-detail-sidebar">
+    <section class="sidebar-box">
+      <h2>{labels.variables}</h2>
+      {artifact.variables.length > 0 ? (
+        <div class="variable-list">
+          {artifact.variables.map((variable) => <code>{`{{${variable}}}`}</code>)}
+        </div>
+      ) : (
+        <p class="notice">{labels.noVariables}</p>
+      )}
+    </section>
+
+    {isWorkflow && artifact.stepCount > 0 && (
+      <section class="sidebar-box workflow-summary">
+        <Workflow size={18} />
+        <strong>{artifact.stepCount}</strong>
+        <span>{labels.steps}</span>
+      </section>
+    )}
+
+    <section class="sidebar-box">
+      <h2>{labels.source}</h2>
+      <p class="notice">{labels.sourceNote}</p>
+      <ul class="prompt-source-list">
+        {sources.map((source) => (
+          <li>
+            <a href={source.url} target="_blank" rel="noreferrer">
+              <span>{source.title}</span>
+              <ExternalLink size={14} />
+            </a>
+            <small><Check size={13} /> {source.publisher ?? 'Unknown'}</small>
+          </li>
+        ))}
+      </ul>
+    </section>
+  </aside>
+</section>
+
+<script>
+  const copyButton = document.querySelector<HTMLButtonElement>('[data-copy-prompt]');
+  const promptText = document.querySelector<HTMLElement>('[data-prompt-text]');
+
+  copyButton?.addEventListener('click', async () => {
+    if (!promptText) return;
+    const text = promptText.textContent ?? '';
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.append(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      textarea.remove();
+    }
+
+    const label = copyButton.querySelector('span');
+    if (label) label.textContent = copyButton.dataset.copiedLabel ?? 'Copied';
+    copyButton.classList.add('copied');
+    window.setTimeout(() => {
+      if (label) label.textContent = copyButton.dataset.copyLabel ?? 'Copy';
+      copyButton.classList.remove('copied');
+    }, 1800);
+  });
+</script>

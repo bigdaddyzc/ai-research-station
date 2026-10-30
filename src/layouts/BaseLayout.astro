@@ -1,0 +1,56 @@
+---
+import '../styles/global.css';
+import { ui, type UiLanguage } from '../lib/i18n';
+
+interface Props {
+  title?: string;
+  description?: string;
+  lang?: UiLanguage;
+}
+
+const { title = 'ACP AI Research', description = 'Bilingual AI research and intelligence website.', lang = 'zh' } = Astro.props;
+const t = ui[lang];
+const otherLang = lang === 'zh' ? 'en' : 'zh';
+const currentPath = Astro.url.pathname;
+const otherPath = currentPath.startsWith('/zh') ? currentPath.replace('/zh', '/en') : currentPath.startsWith('/en') ? currentPath.replace('/en', '/zh') : `/${otherLang}`;
+---
+<!doctype html>
+<html lang={lang === 'zh' ? 'zh-CN' : 'en'}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <title>{title}</title>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="shell nav">
+        <a class="brand" href={`/${lang}`}>
+          <span class="brand-mark">ACP</span>
+          <span>ACP AI Research</span>
+        </a>
+        <nav class="links" aria-label="Primary navigation">
+          <a href={`/${lang}#today`}>{t.today}</a>
+          <a href={`/${lang}/tools`}>{t.tools}</a>
+          <a href={`/${lang}/news`}>{t.news}</a>
+          <a href={`/${lang}/resources`}>{t.resources}</a>
+          <a href={`/${lang}/research`}>{t.research}</a>
+          <a href={`/${lang}/prompts`}>{t.prompts}</a>
+          <a href={`/${lang}/personal`}>{t.personal}</a>
+          <a href={`/${lang}#feedback`}>{t.feedback}</a>
+        </nav>
+        <div class="actions">
+          <a class="icon-btn" title="Search" aria-label="Search" href={`/${lang}#search`} onclick="const el=document.getElementById('searchInput');if(el){event.preventDefault();el.scrollIntoView({behavior:'smooth',block:'center'});setTimeout(()=>el.focus(),300);}">⌕</a>
+          <a class="pill-btn" title="Switch language" href={otherPath}>{otherLang.toUpperCase()}</a>
+        </div>
+      </div>
+    </header>
+    <slot />
+    <footer class="footer">
+      <div class="shell footer-inner">
+        <span>{t.footer}</span>
+        <span>Sources · RSS · Sitemap · Privacy</span>
+      </div>
+    </footer>
+  </body>
+</html>

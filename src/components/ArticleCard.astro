@@ -1,0 +1,29 @@
+---
+import type { Article } from '../lib/types';
+import { categoryLabels, ui, type UiLanguage } from '../lib/i18n';
+
+interface Props {
+  article: Article;
+  lang: UiLanguage;
+}
+
+const { article, lang } = Astro.props;
+const t = ui[lang];
+const href = `/${lang}/${article.category}/${article.slug}`;
+const statusText = article.status === 'published' ? t.published : article.status === 'needs_review' ? t.pendingReview : t.draft;
+---
+<article class="card">
+  <div class="card-head">
+    <span class="tag teal">{categoryLabels[lang][article.category]}</span>
+    <span class="rating">{(article.sourceQualityScore / 10).toFixed(1)}</span>
+  </div>
+  <h3><a href={href}>{article.title}</a></h3>
+  <p>{article.summary}</p>
+  <div class="lead-meta">
+    {article.tags.slice(0, 3).map((tag) => <span class="tag">{tag}</span>)}
+  </div>
+  <div class="card-foot">
+    <span>{article.tags.length > 0 ? article.tags[0] : ''}</span>
+    <span>{statusText}</span>
+  </div>
+</article>

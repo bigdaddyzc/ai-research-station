@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Fold — 睡前情绪释放应用。封存今晚的烦恼，明早拆信后正文销毁，只留星星和回音。">
+  <title>Fold · 封存烦恼，留下星光</title>
+  <style>
+:root {
+  --bg: #0a0e1f;
+  --panel: #0f1530;
+  --surface: rgba(255, 255, 255, 0.07);
+  --border: rgba(255, 255, 255, 0.14);
+  --fg: #eef1f7;
+  --muted: #9aa3c0;
+  --faint: #6b7398;
+  --accent: #e9b770;
+  --accent-soft: rgba(233, 183, 112, 0.17);
+  --font-display: "Iowan Old Style", Charter, Georgia, "Songti SC", serif;
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", system-ui, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: radial-gradient(120% 70% at 50% 0%, #1b2452 0%, #101635 48%, #0a0e1f 100%);
+  color: var(--fg); font-family: var(--font-body); line-height: 1.65;
+  overflow-x: hidden; min-height: 100vh;
+}
+body::before {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(80% 35% at 80% 0%, rgba(233,183,112,0.08), transparent 60%),
+    radial-gradient(65% 42% at 8% 18%, rgba(124,111,156,0.18), transparent 55%);
+}
+h1,h2,h3 { font-family: var(--font-display); font-weight: 600; color: var(--fg); }
+h1 { font-size: clamp(30px,6vw,48px); line-height: 1.12; }
+h2 { font-size: clamp(22px,4vw,30px); line-height: 1.18; }
+h3 { font-size: 18px; }
+p,.fine { color: var(--muted); line-height: 1.65; }
+.fine { font-size: 13px; color: var(--faint); }
+.container { position: relative; z-index: 1; max-width: 860px; margin: 0 auto; padding: 0 22px; }
+.hero { padding: clamp(60px,12vh,120px) 0 clamp(30px,6vh,60px); text-align: center; }
+.hero-mark {
+  width: clamp(72px,12vw,100px); height: clamp(72px,12vw,100px); border-radius: 50%;
+  background: radial-gradient(circle at 36% 34%, #fff5df, var(--accent) 56%, #a77638);
+  box-shadow: 0 0 80px rgba(233,183,112,0.4);
+  display: grid; place-items: center; color: #5a3b15;
+  font: 600 clamp(32px,5vw,48px) var(--font-display); margin: 0 auto 28px;
+}
+.hero-mark::after { content: "F"; }
+.hero .kicker { color: var(--accent); letter-spacing: 0.28em; text-transform: uppercase; font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+.hero h1 { margin-bottom: 16px; }
+.hero .sub { color: var(--muted); font-size: clamp(15px,2.5vw,18px); max-width: 28em; margin: 0 auto 32px; }
+.hero .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 52px; padding: 0 28px; border-radius: 999px; border: 0; cursor: pointer;
+  font-family: var(--font-body); font-size: 15px; font-weight: 600; text-decoration: none; white-space: nowrap;
+}
+.btn-primary { background: linear-gradient(180deg,#f2cc8f,var(--accent)); color: #34240e; box-shadow: 0 16px 36px rgba(233,183,112,0.24); font-weight: 800; }
+.btn-secondary { background: var(--surface); border: 1px solid var(--border); color: var(--fg); }
+.section { padding: clamp(40px,8vh,80px) 0; }
+.section-header { text-align: center; margin-bottom: 40px; }
+.section-header .kicker { color: var(--accent); letter-spacing: 0.24em; text-transform: uppercase; font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+.feature-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap: 16px; }
+.feature-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 24px; backdrop-filter: blur(10px); }
+.feature-card .icon { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-size: 22px; margin-bottom: 16px; }
+.feature-card .icon.anx { background: rgba(59,91,219,0.2); }
+.feature-card .icon.peach { background: rgba(233,183,112,0.2); }
+.feature-card .icon.purple { background: rgba(124,111,156,0.2); }
+.feature-card .icon.green { background: rgba(31,93,76,0.2); }
+.feature-card h3 { margin-bottom: 8px; }
+.feature-card p { margin: 0; font-size: 14px; }
+.privacy-banner {
+  background: var(--panel); border: 1px solid rgba(233,183,112,0.25); border-radius: 12px;
+  padding: clamp(28px,4vw,44px); display: grid; grid-template-columns: auto 1fr; gap: 24px; align-items: center;
+}
+.privacy-banner .lock { font-size: 40px; line-height: 1; color: var(--accent); }
+.privacy-banner h3 { margin-bottom: 8px; }
+.privacy-banner p { margin: 0; font-size: 14px; }
+.privacy-list { display: grid; gap: 12px; margin-top: 24px; }
+.privacy-list li { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; color: var(--muted); list-style: none; }
+.privacy-list .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-top: 7px; flex: none; opacity: 0.6; }
+.download-section { text-align: center; padding-bottom: clamp(50px,10vh,100px); }
+.download-section .cta-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: clamp(24px,4vw,40px); display: inline-block; min-width: min(100%,400px); }
+.version { color: var(--faint); font-size: 12px; margin-bottom: 20px; }
+.footer { border-top: 1px solid var(--border); padding: 28px 22px; text-align: center; }
+.footer .links { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin-bottom: 12px; }
+.footer a { color: var(--faint); text-decoration: none; font-size: 13px; }
+.footer a:hover { color: var(--muted); }
+.footer .copy { color: var(--faint); font-size: 12px; }
+@media (max-width: 640px) {
+  .privacy-banner { grid-template-columns: 1fr; text-align: center; }
+  .feature-grid { grid-template-columns: 1fr; }
+  .hero { padding: 40px 0 30px; }
+  .hero .actions { flex-direction: column; align-items: center; }
+  .hero .actions .btn { width: 100%; max-width: 320px; }
+}
+  </style>
+</head>
+<body>
+
+  <section class="hero container">
+    <div class="hero-mark"></div>
+    <div class="kicker">Sleep · Seal · Stars</div>
+    <h1>封存烦恼，留下星光</h1>
+    <p class="sub">睡前写下今晚的烦恼，Fold 帮你封存。第二天早晨拆信，正文销毁，只留一颗星和一句回音。</p>
+    <div class="actions">
+      <a href="/assets/fold.apk" class="btn btn-primary">下载 APK</a>
+      <a href="#how" class="btn btn-secondary">了解更多</a>
+    </div>
+  </section>
+
+  <section id="how" class="section container">
+    <div class="section-header">
+      <div class="kicker">How it works</div>
+      <h2>三步释放，轻装入眠</h2>
+    </div>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="icon peach">🌙</div>
+        <h3>晚间封存</h3>
+        <p>睡前把烦恼写下来，Fold 会分析情绪、加密保存正文，帮你把重量卸下。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon purple">📬</div>
+        <h3>晨间拆信</h3>
+        <p>第二天早晨收到提醒，拆开昨晚的信。正文阅后即焚，只留下情绪元数据。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon anx">⭐</div>
+        <h3>星星与回音</h3>
+        <p>每封拆完的信变成一颗星，汇入你的专属星空。一句温柔的回音，陪你开启新一天。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon green">🔒</div>
+        <h3>隐私优先</h3>
+        <p>正文仅存于设备安全存储，拆信后立即销毁。情绪分析全部本地完成，不上传任何数据。</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section container">
+    <div class="privacy-banner">
+      <div class="lock">🛡️</div>
+      <div>
+        <h3>你的烦恼，只属于你</h3>
+        <p>烦恼正文通过 Android Keystore 加密，拆信后从设备彻底删除。长期保留的只有情绪颜色、主题、星星和回音——没有任何可追溯到原文的内容。</p>
+        <ul class="privacy-list">
+          <li><span class="dot"></span>正文仅在封存到拆信期间存在</li>
+          <li><span class="dot"></span>情绪分析 100% 本地运行</li>
+          <li><span class="dot"></span>无账号、无云端、无追踪</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="section container download-section">
+    <div class="section-header">
+      <div class="kicker">Download</div>
+      <h2>今晚就开始</h2>
+    </div>
+    <div class="cta-card">
+      <p class="version">v1.0.0 · Android 6.0+</p>
+      <a href="/assets/fold.apk" class="btn btn-primary">下载 Fold APK</a>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="links">
+      <a href="/privacy">隐私政策</a>
+      <a href="/terms">服务条款</a>
+      <a href="mailto:yanz82297@gmail.com">联系我们</a>
+    </div>
+    <p class="copy">&copy; 2026 Fold · 周超</p>
+  </footer>
+
+</body>
+</html>

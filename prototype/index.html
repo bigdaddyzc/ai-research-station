@@ -1,0 +1,707 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ACP AI Research Prototype</title>
+  <style>
+    :root {
+      --bg: #f6f8f7;
+      --panel: #ffffff;
+      --ink: #151c1c;
+      --muted: #5e6b68;
+      --line: #dce4e1;
+      --teal: #087f6b;
+      --teal-soft: #e4f4ef;
+      --amber: #b7791f;
+      --amber-soft: #fff4dc;
+      --red: #b42318;
+      --red-soft: #ffe8e3;
+      --blue: #1f5f99;
+      --blue-soft: #e7f0fb;
+      --shadow: 0 16px 40px rgba(21, 28, 28, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      letter-spacing: 0;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    .shell {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: rgba(246, 248, 247, 0.94);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .nav {
+      min-height: 72px;
+      display: flex;
+      align-items: center;
+      gap: 22px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 210px;
+      font-weight: 800;
+      font-size: 18px;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      background: var(--ink);
+      color: white;
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .links {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .links a {
+      color: var(--muted);
+      font-size: 14px;
+      padding: 9px 10px;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+
+    .links a.active,
+    .links a:hover {
+      color: var(--ink);
+      background: #ecf0ef;
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .icon-btn,
+    .pill-btn {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--ink);
+      border-radius: 7px;
+      height: 38px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .icon-btn { width: 38px; }
+    .pill-btn { padding: 0 12px; }
+    .primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+    .hero {
+      padding: 28px 0 18px;
+    }
+
+    .kicker {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 14px;
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--teal);
+      box-shadow: 0 0 0 5px var(--teal-soft);
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .lead-panel,
+    .brief-panel,
+    .card,
+    .section-panel,
+    .resource-strip {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .lead-panel {
+      padding: 28px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 220px;
+      gap: 28px;
+      min-height: 335px;
+    }
+
+    .lead-copy h1 {
+      font-size: clamp(30px, 4vw, 54px);
+      line-height: 1.03;
+      margin: 0 0 16px;
+      max-width: 760px;
+      letter-spacing: 0;
+    }
+
+    .lead-copy p {
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.7;
+      margin: 0 0 22px;
+      max-width: 720px;
+    }
+
+    .lead-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 22px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 28px;
+      padding: 0 9px;
+      border-radius: 999px;
+      background: #edf2f1;
+      color: #34403e;
+      font-size: 13px;
+      border: 1px solid #d9e2df;
+    }
+
+    .tag.teal { background: var(--teal-soft); color: var(--teal); border-color: #bfe4d9; }
+    .tag.amber { background: var(--amber-soft); color: var(--amber); border-color: #f4db9a; }
+    .tag.red { background: var(--red-soft); color: var(--red); border-color: #ffc7bb; }
+    .tag.blue { background: var(--blue-soft); color: var(--blue); border-color: #c5dcf5; }
+
+    .score-board {
+      border-left: 1px solid var(--line);
+      padding-left: 24px;
+      display: grid;
+      gap: 14px;
+      align-content: center;
+    }
+
+    .metric {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfc;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 26px;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .brief-panel {
+      padding: 20px;
+      min-height: 335px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .panel-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 2px;
+    }
+
+    .panel-title h2,
+    .section-title h2 {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.2;
+    }
+
+    .panel-title span,
+    .section-title span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .brief-item {
+      padding: 13px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .brief-item:first-of-type { border-top: 0; }
+    .brief-item h3 { margin: 0 0 6px; font-size: 15px; line-height: 1.35; }
+    .brief-item p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+
+    .toolbar {
+      margin: 18px 0 0;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .searchbox {
+      height: 46px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .segmented {
+      display: flex;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .segmented button {
+      height: 44px;
+      padding: 0 14px;
+      border: 0;
+      border-left: 1px solid var(--line);
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .segmented button:first-child { border-left: 0; }
+    .segmented button.active { background: var(--ink); color: white; }
+
+    .sections {
+      padding: 20px 0 54px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .section-panel { padding: 20px; }
+
+    .section-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .cards-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      padding: 16px;
+      box-shadow: none;
+      min-height: 180px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .card h3 {
+      margin: 0;
+      font-size: 17px;
+      line-height: 1.35;
+    }
+
+    .card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.65;
+      flex: 1;
+    }
+
+    .card-foot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 12px;
+      border-top: 1px solid var(--line);
+      padding-top: 12px;
+    }
+
+    .rating {
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      background: var(--teal-soft);
+      color: var(--teal);
+      font-weight: 800;
+      flex: 0 0 auto;
+    }
+
+    .news-list {
+      display: grid;
+      gap: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .news-row {
+      display: grid;
+      grid-template-columns: 140px minmax(0, 1fr) auto;
+      gap: 18px;
+      padding: 15px;
+      border-top: 1px solid var(--line);
+      align-items: center;
+    }
+
+    .news-row:first-child { border-top: 0; }
+    .news-row .time { color: var(--muted); font-size: 13px; }
+    .news-row h3 { margin: 0 0 5px; font-size: 16px; }
+    .news-row p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+
+    .resource-strip {
+      padding: 16px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: center;
+      box-shadow: none;
+      margin-top: 14px;
+      background: #fbfcfc;
+    }
+
+    .resource-strip h3 { margin: 0 0 6px; font-size: 17px; }
+    .resource-strip p { margin: 0; color: var(--muted); line-height: 1.55; font-size: 14px; }
+
+    .footer {
+      border-top: 1px solid var(--line);
+      padding: 28px 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .footer-inner {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 980px) {
+      .nav { flex-wrap: wrap; padding: 14px 0; }
+      .brand { flex: 1; }
+      .links { order: 3; overflow: auto; flex-basis: 100%; }
+      .hero-grid, .lead-panel { grid-template-columns: 1fr; }
+      .score-board { border-left: 0; border-top: 1px solid var(--line); padding-left: 0; padding-top: 18px; grid-template-columns: repeat(3, 1fr); }
+      .cards-3 { grid-template-columns: 1fr; }
+      .news-row { grid-template-columns: 1fr; gap: 8px; }
+    }
+
+    @media (max-width: 640px) {
+      .shell { width: min(100% - 22px, 1180px); }
+      .actions .pill-btn.primary { display: none; }
+      .lead-panel, .brief-panel, .section-panel { padding: 16px; }
+      .lead-copy h1 { font-size: 34px; }
+      .lead-copy p { font-size: 15px; }
+      .score-board { grid-template-columns: 1fr; }
+      .toolbar { grid-template-columns: 1fr; }
+      .segmented { overflow-x: auto; }
+      .segmented button { flex: 1 0 auto; }
+      .resource-strip { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="shell nav">
+      <a class="brand" href="#">
+        <span class="brand-mark">ACP</span>
+        <span>ACP AI Research</span>
+      </a>
+      <nav class="links" aria-label="Primary navigation">
+        <a class="active" href="#today">今日情报</a>
+        <a href="#tools">AI工具评测</a>
+        <a href="#news">AI新闻</a>
+        <a href="#resources">AI资源</a>
+        <a href="#research">深度研究</a>
+        <a href="#personal">个人资源</a>
+      </nav>
+      <div class="actions">
+        <button class="icon-btn" title="搜索" aria-label="搜索">⌕</button>
+        <button class="pill-btn" title="Switch language">EN</button>
+        <button class="pill-btn primary">Admin</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" id="today">
+      <div class="shell">
+        <div class="kicker"><span class="live-dot"></span><span>2026.07.01 · 人工审核后发布 · 中文/English 双语同步</span></div>
+        <div class="hero-grid">
+          <article class="lead-panel">
+            <div class="lead-copy">
+              <div class="lead-meta">
+                <span class="tag teal">深度研究</span>
+                <span class="tag amber">12个来源</span>
+                <span class="tag blue">预计阅读 9 分钟</span>
+              </div>
+              <h1>AI Agent 正在从演示走向生产，但真正的门槛变成了工作流可靠性</h1>
+              <p>今日主推研究梳理了近期AI Agent平台、MCP生态、浏览器自动化和企业工作流产品的变化，重点解释为什么“能跑起来”不再是核心竞争力，稳定执行、权限边界和可审计性才是下一阶段关键。</p>
+              <div class="lead-meta">
+                <span class="tag">MCP</span>
+                <span class="tag">Agent Runtime</span>
+                <span class="tag">Enterprise AI</span>
+              </div>
+              <button class="pill-btn primary">阅读全文</button>
+            </div>
+            <aside class="score-board" aria-label="今日指标">
+              <div class="metric"><strong>18</strong><span>今日候选信号</span></div>
+              <div class="metric"><strong>7</strong><span>待审核草稿</span></div>
+              <div class="metric"><strong>86</strong><span>平均可信度</span></div>
+            </aside>
+          </article>
+
+          <aside class="brief-panel">
+            <div class="panel-title">
+              <h2>今日AI快讯</h2>
+              <span>AI News</span>
+            </div>
+            <div class="brief-item">
+              <h3>开源模型更新继续压低中小团队推理成本</h3>
+              <p>多个模型平台发布轻量版本，重点转向低延迟、长上下文和部署成本。</p>
+            </div>
+            <div class="brief-item">
+              <h3>AI编程工具进入“多代理协作”叙事</h3>
+              <p>新产品从补全代码转向任务拆解、测试执行和PR级别交付。</p>
+            </div>
+            <div class="brief-item">
+              <h3>企业AI搜索产品强调权限继承</h3>
+              <p>知识库问答开始把访问控制、审计日志和数据驻留作为核心卖点。</p>
+            </div>
+            <button class="pill-btn">查看全部快讯</button>
+          </aside>
+        </div>
+
+        <div class="toolbar">
+          <div class="searchbox">⌕ 搜索工具、概念、新闻、资源，例如：MCP、Gemini、AI Browser</div>
+          <div class="segmented" aria-label="Language switch">
+            <button class="active">中文</button>
+            <button>English</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="shell sections">
+      <section class="section-panel" id="tools">
+        <div class="section-title">
+          <div>
+            <h2>AI工具评测</h2>
+            <span>从适用人群、价格、可靠性和替代品角度评估近期活跃项目</span>
+          </div>
+          <button class="pill-btn">更多评测</button>
+        </div>
+        <div class="cards-3">
+          <article class="card">
+            <div class="card-head"><span class="tag teal">工具评测</span><span class="rating">8.4</span></div>
+            <h3>Devin 类AI工程师产品：适合谁，风险在哪里？</h3>
+            <p>评估端到端编码代理在真实团队中的可用性、成本和对现有研发流程的要求。</p>
+            <div class="card-foot"><span>9个来源</span><span>待站长审核</span></div>
+          </article>
+          <article class="card">
+            <div class="card-head"><span class="tag blue">开源项目</span><span class="rating">7.9</span></div>
+            <h3>本地知识库Agent框架对比：轻量、可控还是维护负担？</h3>
+            <p>聚焦个人与小团队部署场景，对比上手难度、插件生态和长期维护成本。</p>
+            <div class="card-foot"><span>6个来源</span><span>草稿</span></div>
+          </article>
+          <article class="card">
+            <div class="card-head"><span class="tag amber">生产力</span><span class="rating">8.1</span></div>
+            <h3>AI会议助手的下一轮竞争：摘要之外还能做什么</h3>
+            <p>从转写准确率、动作项追踪、隐私合规和企业集成四个维度拆解。</p>
+            <div class="card-foot"><span>5个来源</span><span>已发布</span></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section-panel" id="news">
+        <div class="section-title">
+          <div>
+            <h2>AI新闻</h2>
+            <span>每日高热消息摘要，并补充影响分析</span>
+          </div>
+          <button class="pill-btn">新闻归档</button>
+        </div>
+        <div class="news-list">
+          <article class="news-row">
+            <div class="time">08:30 · 模型</div>
+            <div><h3>多模态模型发布节奏加快，视频理解成为新战场</h3><p>关注点从演示效果转向长视频理解、检索成本和开发者API稳定性。</p></div>
+            <span class="tag red">热度 92</span>
+          </article>
+          <article class="news-row">
+            <div class="time">10:15 · 企业</div>
+            <div><h3>企业AI采购开始要求更明确的数据边界</h3><p>权限继承、审计和区域合规逐渐成为AI SaaS成交前置条件。</p></div>
+            <span class="tag amber">热度 81</span>
+          </article>
+          <article class="news-row">
+            <div class="time">13:40 · 开源</div>
+            <div><h3>轻量推理框架获得开发者关注</h3><p>社区讨论集中在本地部署、边缘设备和低成本私有化场景。</p></div>
+            <span class="tag teal">热度 76</span>
+          </article>
+        </div>
+      </section>
+
+      <section class="section-panel" id="resources">
+        <div class="section-title">
+          <div>
+            <h2>AI资源分享</h2>
+            <span>免费额度、开源资源、课程和可领取权益，标注时效与限制</span>
+          </div>
+          <button class="pill-btn">资源库</button>
+        </div>
+        <div class="cards-3">
+          <article class="card">
+            <div class="card-head"><span class="tag teal">免费额度</span><span class="tag">需信用卡</span></div>
+            <h3>云端AI开发试用额度整理</h3>
+            <p>适合搭建原型、跑批量生成任务和测试模型API，需注意试用期和区域限制。</p>
+            <div class="card-foot"><span>有效期待确认</span><span>领取难度 中</span></div>
+          </article>
+          <article class="card">
+            <div class="card-head"><span class="tag blue">课程</span><span class="tag">无需付费</span></div>
+            <h3>Agent工作流入门课程清单</h3>
+            <p>偏实操，覆盖工具调用、记忆、检索、浏览器自动化和评估方法。</p>
+            <div class="card-foot"><span>4个来源</span><span>适合初学者</span></div>
+          </article>
+          <article class="card">
+            <div class="card-head"><span class="tag amber">开源</span><span class="tag">开发者</span></div>
+            <h3>可商用提示词与评测模板</h3>
+            <p>收集适合内容生成、工具评测和研究写作的结构化模板。</p>
+            <div class="card-foot"><span>MIT/Apache优先</span><span>草稿</span></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section-panel" id="research">
+        <div class="section-title">
+          <div>
+            <h2>深度研究</h2>
+            <span>把近期热门概念讲清楚，给出背景、玩家、争议和判断</span>
+          </div>
+          <button class="pill-btn">研究专题</button>
+        </div>
+        <div class="cards-3">
+          <article class="card">
+            <div class="card-head"><span class="tag teal">概念科普</span><span class="tag">双语</span></div>
+            <h3>MCP为什么突然变成AI应用的基础设施关键词？</h3>
+            <p>从工具连接、上下文交换、生态标准和安全边界解释MCP热度来源。</p>
+            <div class="card-foot"><span>预计12分钟</span><span>10个来源</span></div>
+          </article>
+          <article class="card">
+            <div class="card-head"><span class="tag amber">趋势分析</span><span class="tag">企业AI</span></div>
+            <h3>RAG没有过时，但它正在变得不再显眼</h3>
+            <p>研究模型长上下文、检索增强和企业知识库之间的新分工。</p>
+            <div class="card-foot"><span>预计10分钟</span><span>待审核</span></div>
+          </article>
+          <article class="card">
+            <div class="card-head"><span class="tag blue">市场观察</span><span class="tag">AI浏览器</span></div>
+            <h3>AI浏览器会成为新入口，还是又一个过渡形态？</h3>
+            <p>分析浏览器代理、网页操作权限、隐私担忧和现有巨头的防守优势。</p>
+            <div class="card-foot"><span>预计8分钟</span><span>已发布</span></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section-panel" id="personal">
+        <div class="section-title">
+          <div>
+            <h2>个人资源分享</h2>
+            <span>站长项目、APP、教程、提示词和个人整理资源</span>
+          </div>
+          <button class="pill-btn">管理资源</button>
+        </div>
+        <div class="resource-strip">
+          <div>
+            <span class="tag teal">保留原页面</span>
+            <h3>ACP APP 宣传页</h3>
+            <p>原有APP宣传内容将保留为独立 `/app` 页面，并作为个人资源区的固定入口展示。</p>
+          </div>
+          <button class="pill-btn primary">打开 /app</button>
+        </div>
+        <div class="resource-strip">
+          <div>
+            <span class="tag blue">站长手动维护</span>
+            <h3>我的AI工具箱与提示词收藏</h3>
+            <p>不进入自动生成流程，保持个人选择和真实使用痕迹，增强网站可信度。</p>
+          </div>
+          <button class="pill-btn">查看</button>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="shell footer-inner">
+      <span>ACP AI Research · AI辅助生成，站长审核后发布</span>
+      <span>Sources · RSS · Sitemap · Privacy · Admin</span>
+    </div>
+  </footer>
+</body>
+</html>

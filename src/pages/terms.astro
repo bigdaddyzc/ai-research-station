@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Fold 服务条款：说明产品边界、订阅、AI、通知和使用限制。">
+  <title>Fold · 服务条款</title>
+  <style>
+:root {
+  --bg: #0a0e1f;
+  --panel: #0f1530;
+  --surface: rgba(255, 255, 255, 0.07);
+  --border: rgba(255, 255, 255, 0.14);
+  --fg: #eef1f7;
+  --muted: #9aa3c0;
+  --faint: #6b7398;
+  --accent: #e9b770;
+  --font-display: "Iowan Old Style", Charter, Georgia, "Songti SC", serif;
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", system-ui, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: radial-gradient(120% 70% at 50% 0%, #1b2452 0%, #101635 48%, #0a0e1f 100%);
+  color: var(--fg); font-family: var(--font-body); line-height: 1.65;
+  overflow-x: hidden; min-height: 100vh;
+}
+body::before {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(80% 35% at 80% 0%, rgba(233,183,112,0.08), transparent 60%),
+    radial-gradient(65% 42% at 8% 18%, rgba(124,111,156,0.18), transparent 55%);
+}
+h1,h2,h3 { font-family: var(--font-display); font-weight: 600; color: var(--fg); }
+h1 { font-size: clamp(24px,5vw,36px); line-height: 1.18; }
+h3 { font-size: 18px; }
+p,.fine { color: var(--muted); line-height: 1.65; }
+.fine { font-size: 13px; color: var(--faint); }
+.container { position: relative; z-index: 1; max-width: 860px; margin: 0 auto; padding: 0 22px; }
+.section { padding: clamp(40px,8vh,80px) 0; }
+.section-header { margin-bottom: 28px; }
+.section-header .kicker { color: var(--accent); letter-spacing: 0.24em; text-transform: uppercase; font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 52px; padding: 0 28px; border-radius: 999px; border: 0; cursor: pointer;
+  font-family: var(--font-body); font-size: 15px; font-weight: 600; text-decoration: none; white-space: nowrap;
+}
+.btn-secondary { background: var(--surface); border: 1px solid var(--border); color: var(--fg); }
+.feature-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 24px; backdrop-filter: blur(10px); }
+.feature-card h3 { margin-bottom: 8px; }
+.feature-card p { margin: 0; font-size: 14px; }
+.feature-card a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <main class="section container" style="max-width:820px">
+    <a href="/app" class="btn btn-secondary" style="margin-bottom:28px">返回首页</a>
+    <div class="section-header" style="text-align:left">
+      <div class="kicker">Terms</div>
+      <h1>服务条款</h1>
+      <p class="fine" style="margin-top:10px">生效日期：2026-06-24</p>
+    </div>
+
+    <div class="feature-card" style="margin-bottom:16px">
+      <h3>产品定位</h3>
+      <p>Fold 是睡前情绪卸载工具，不是医疗、心理治疗、危机干预或专业咨询服务。它不会诊断、治疗或替代专业帮助。遇到紧急危险时，请联系当地急救、警方或合格专业人士。</p>
+    </div>
+
+    <div class="feature-card" style="margin-bottom:16px">
+      <h3>使用方式</h3>
+      <p>你需要对自己输入的内容和使用行为负责。请勿使用 Fold 存储违法内容、他人隐私、长期医疗记录、账户密码或其他需要长期保留的敏感资料。</p>
+    </div>
+
+    <div class="feature-card" style="margin-bottom:16px">
+      <h3>AI 与回音</h3>
+      <p>本地或远程 AI 结果仅用于产品体验，可能不准确。回音是温和文本，不构成建议、诊断、治疗方案或风险评估。远程 AI 不保证持续可用。</p>
+    </div>
+
+    <div class="feature-card" style="margin-bottom:16px">
+      <h3>Pro 订阅</h3>
+      <p>Pro 解锁完整星空、长期趋势、情绪天气、来源地图和重量曲线。价格、试用、续订、取消和退款以应用商店页面为准。恢复购买会通过 RevenueCat 和应用商店账户检查有效 entitlement。</p>
+    </div>
+
+    <div class="feature-card" style="margin-bottom:16px">
+      <h3>通知可靠性</h3>
+      <p>Fold 会尽量使用系统能力发送提醒，但通知可能受权限、精确闹钟设置、省电策略、系统更新、重启和厂商限制影响。通知不是保证送达的服务承诺。</p>
+    </div>
+
+    <div class="feature-card" style="margin-bottom:16px">
+      <h3>可用性与变更</h3>
+      <p>Fold 可能调整功能、价格、AI 提供方、订阅权益或发布方式。重大隐私或订阅变化应在应用或发布页面中说明。</p>
+    </div>
+
+    <div class="feature-card">
+      <h3>联系我们</h3>
+      <p>运营者：周超<br>联系邮箱：<a href="mailto:yanz82297@gmail.com">yanz82297@gmail.com</a><br>如因使用本产品产生争议，适用中华人民共和国法律。</p>
+    </div>
+  </main>
+</body>
+</html>

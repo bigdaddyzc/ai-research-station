@@ -1,0 +1,15 @@
+name = "acp-ai-research"
+compatibility_date = "2026-07-01"
+pages_build_output_dir = ".codex-pages-deploy"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "acp_ai_research"
+database_id = "9769d3ba-3081-49ad-bb28-01fb2002df6f"
+migrations_dir = "migrations"
+
+[vars]
+PUBLIC_SITE_URL = "https://acp.dpdns.org"
+AI_PROVIDER = "vertex-ai"
+GOOGLE_CLOUD_PROJECT = "direct-beacon-501110-u7"
+GOOGLE_CLOUD_LOCATION = "us-central1"

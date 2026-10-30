@@ -1,0 +1,169 @@
+---
+import BaseLayout from '../../../../layouts/BaseLayout.astro';
+import PromptDetail from '../../../../components/PromptDetail.astro';
+import { getArticleBySlug, getDb, getResearchArtifactsForArticle, getSourcesForGroup } from '../../../../lib/db';
+import { renderMarkdown } from '../../../../lib/markdown';
+import { categoryLabels, ui, type UiLanguage } from '../../../../lib/i18n';
+import type { Category } from '../../../../lib/types';
+
+const lang = Astro.params.lang as UiLanguage;
+const category = Astro.params.category as Category;
+const slug = Astro.params.slug ?? '';
+const validCategories: Category[] = ['tools', 'news', 'resources', 'research', 'prompts', 'personal'];
+
+if ((lang !== 'zh' && lang !== 'en') || !validCategories.includes(category)) {
+  return Astro.redirect('/zh');
+}
+
+const db = await getDb(Astro.locals);
+const article = await getArticleBySlug(db, lang, slug);
+
+if (!article || article.category !== category) {
+  return Astro.redirect(`/${lang}/${category}`);
+}
+
+const sources = await getSourcesForGroup(db, article.contentGroupId);
+const researchArtifacts = await getResearchArtifactsForArticle(db, article.id);
+const t = ui[lang];
+const html = renderMarkdown(article.contentMarkdown);
+const formatDate = (value: string | null) => {
+  if (!value) return lang === 'zh' ? '未标注' : 'Not specified';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return lang === 'zh'
+    ? date.toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' })
+    : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
+const canonicalUrl = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin).toString();
+const pageTitle = article.seoTitle ?? article.title;
+const pageDescription = article.seoDescription ?? article.summary;
+const articleJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Article',
+  headline: article.title,
+  description: article.summary,
+  inLanguage: lang === 'zh' ? 'zh-CN' : 'en',
+  datePublished: article.publishedAt ?? undefined,
+  dateModified: researchArtifacts.updates[0]?.createdAt ?? article.publishedAt ?? undefined,
+  mainEntityOfPage: canonicalUrl,
+  author: { '@type': 'Organization', name: 'ACP AI Research' },
+  publisher: { '@type': 'Organization', name: 'ACP AI Research' },
+  about: researchArtifacts.entities.map((entity) => entity.entityName),
+  citation: sources.map((source) => source.url),
+};
+const faqJsonLd = researchArtifacts.faqs.length > 0 ? {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: researchArtifacts.faqs.map((faq) => ({
+    '@type': 'Question',
+    name: faq.question,
+    acceptedAnswer: { '@type': 'Answer', text: faq.answer },
+  })),
+} : null;
+const breadcrumbJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'ACP AI Research', item: new URL(`/${lang}`, Astro.site ?? Astro.url.origin).toString() },
+    { '@type': 'ListItem', position: 2, name: categoryLabels[lang][article.category], item: new URL(`/${lang}/${article.category}`, Astro.site ?? Astro.url.origin).toString() },
+    { '@type': 'ListItem', position: 3, name: article.title, item: canonicalUrl },
+  ],
+};
+---
+<BaseLayout title={`${pageTitle} · ACP AI Research`} description={pageDescription} lang={lang}>
+  <script type="application/ld+json" set:html={JSON.stringify(articleJsonLd)} is:inline />
+  {faqJsonLd && <script type="application/ld+json" set:html={JSON.stringify(faqJsonLd)} is:inline />}
+  <script type="application/ld+json" set:html={JSON.stringify(breadcrumbJsonLd)} is:inline />
+  <main>
+    {category === 'prompts' ? (
+      <PromptDetail article={article} sources={sources} lang={lang} />
+    ) : (
+    <section class="shell article-grid">
+      <article class="article-panel">
+        <div class="lead-meta">
+          <span class="tag teal">{categoryLabels[lang][article.category]}</span>
+          <span class="tag amber">Heat {article.heatScore}</span>
+          <span class="tag blue">Quality {article.sourceQualityScore}</span>
+        </div>
+        <h1>{article.title}</h1>
+        <p class="summary">{article.summary}</p>
+        <div class="lead-meta">
+          {article.tags.map((tag) => <span class="tag">{tag}</span>)}
+        </div>
+        {researchArtifacts.claims.length > 0 && (
+          <section class="research-block key-claims" aria-label={lang === 'zh' ? '核心结论' : 'Key claims'}>
+            <h2>{lang === 'zh' ? '核心结论' : 'Key Takeaways'}</h2>
+            <ol>
+              {researchArtifacts.claims.slice(0, 8).map((claim) => (
+                <li>
+                  <p>{claim.claimText}</p>
+                  <div class="lead-meta compact-meta">
+                    <span class="tag blue">{claim.claimType}</span>
+                    <span class="tag amber">{claim.confidence}</span>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </section>
+        )}
+        <div class="prose" set:html={html} />
+        {researchArtifacts.faqs.length > 0 && (
+          <section class="research-block faq-block" aria-label="FAQ">
+            <h2>FAQ</h2>
+            {researchArtifacts.faqs.map((faq) => (
+              <details>
+                <summary>{faq.question}</summary>
+                <p>{faq.answer}</p>
+              </details>
+            ))}
+          </section>
+        )}
+      </article>
+      <aside class="sidebar">
+        <div class="sidebar-box">
+          <h2>{lang === 'zh' ? '发布信息' : 'Publish Info'}</h2>
+          <p class="notice">{article.status === 'published' ? t.published : t.pendingReview}</p>
+          <p class="notice">{lang === 'zh' ? '发布日期' : 'Published'}: {formatDate(article.publishedAt)}</p>
+        </div>
+        {researchArtifacts.updates.length > 0 && (
+          <div class="sidebar-box">
+            <h2>{lang === 'zh' ? '更新记录' : 'Updates'}</h2>
+            <ul>
+              {researchArtifacts.updates.slice(0, 5).map((update) => (
+                <li><p class="notice">{formatDate(update.createdAt)} · {update.updateNote}</p></li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {researchArtifacts.entities.length > 0 && (
+          <div class="sidebar-box">
+            <h2>{lang === 'zh' ? '关键实体' : 'Key Entities'}</h2>
+            <div class="entity-list">
+              {researchArtifacts.entities.map((entity) => (
+                entity.canonicalUrl ? <a class="tag" href={entity.canonicalUrl} target="_blank" rel="noreferrer">{entity.entityName}</a> : <span class="tag">{entity.entityName}</span>
+              ))}
+            </div>
+          </div>
+        )}
+        <div class="sidebar-box">
+          <h2>{lang === 'zh' ? '文章来源' : 'Sources'}</h2>
+          <ul>
+            {sources.map((source) => (
+              <li>
+                <a href={source.url} target="_blank" rel="noreferrer">{source.title}</a>
+                <p class="notice">
+                  {source.publisher ?? 'Unknown'} · {lang === 'zh' ? '发表' : 'Published'}: {formatDate(source.publishedAt)} · {lang === 'zh' ? '抓取' : 'Retrieved'}: {formatDate(source.retrievedAt)}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div class="sidebar-box">
+          <h2>{lang === 'zh' ? 'AI 辅助声明' : 'AI Notice'}</h2>
+          <p class="notice">{lang === 'zh' ? '本文由 AI 辅助生成，发布前由站长审核来源、事实和措辞。' : 'This article is AI-assisted and reviewed by the site owner before publication.'}</p>
+        </div>
+      </aside>
+    </section>
+    )}
+  </main>
+</BaseLayout>

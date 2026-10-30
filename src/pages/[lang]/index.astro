@@ -1,0 +1,211 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import ArticleCard from '../../components/ArticleCard.astro';
+import { getDb, listArticles, listPersonalResources } from '../../lib/db';
+import { ui, categoryLabels, type UiLanguage } from '../../lib/i18n';
+
+const lang = Astro.params.lang as UiLanguage;
+if (lang !== 'zh' && lang !== 'en') {
+  return Astro.redirect('/zh');
+}
+
+const t = ui[lang];
+const db = await getDb(Astro.locals);
+const allArticles = await listArticles(db, lang, { limit: 24 });
+const tools = allArticles.filter((article) => article.category === 'tools').slice(0, 3);
+const news = allArticles.filter((article) => article.category === 'news').slice(0, 3);
+const resources = allArticles.filter((article) => article.category === 'resources').slice(0, 3);
+const research = allArticles.filter((article) => article.category === 'research').slice(0, 3);
+const prompts = allArticles.filter((article) => article.category === 'prompts').slice(0, 3);
+const personal = await listPersonalResources(db, lang);
+const lead = allArticles[0];
+const now = new Date();
+const feedbackSent = Astro.url.searchParams.get('feedback') === 'sent';
+const todayText = lang === 'zh'
+  ? `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`
+  : now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+---
+<BaseLayout title="ACP AI Research" description="Bilingual AI research and intelligence website." lang={lang}>
+  <main>
+    <section class="hero" id="today">
+      <div class="shell">
+        <div class="kicker"><span class="live-dot"></span><span>{todayText} · {t.reviewed} · {t.bilingual}</span></div>
+        <div class="hero-grid">
+          <article class="lead-panel">
+            <div class="lead-copy">
+              <div class="lead-meta">
+                <span class="tag teal">{categoryLabels[lang][lead?.category as keyof typeof categoryLabels['zh']] ?? t.news}</span>
+                <span class="tag amber">{lead?.sourceQualityScore ?? 0} quality</span>
+                <span class="tag red">Heat {lead?.heatScore ?? 0}</span>
+              </div>
+              <h1>{lead?.title}</h1>
+              <p>{lead?.summary}</p>
+              <div class="lead-meta">
+                {lead?.tags.slice(0, 3).map((tag) => <span class="tag">{tag}</span>)}
+              </div>
+              {lead && <a class="pill-btn primary" href={`/${lang}/${lead.category}/${lead.slug}`}>{t.readMore}</a>}
+            </div>
+            <aside class="score-board" aria-label="Today metrics">
+              <div class="metric"><strong>{allArticles.length}</strong><span>{lang === 'zh' ? '今日候选信号' : 'signals tracked'}</span></div>
+              <div class="metric"><strong>{allArticles.length}</strong><span>{lang === 'zh' ? '已发布文章' : 'published'}</span></div>
+              <div class="metric"><strong>{Math.round(allArticles.reduce((sum, item) => sum + item.sourceQualityScore, 0) / Math.max(allArticles.length, 1))}</strong><span>{lang === 'zh' ? '平均可信度' : 'avg. quality'}</span></div>
+            </aside>
+          </article>
+
+          <aside class="brief-panel">
+            <div class="panel-title">
+              <h2>{t.news}</h2>
+              <span>AI News</span>
+            </div>
+            {news.map((item) => (
+              <div class="brief-item">
+                <h3><a href={`/${lang}/${item.category}/${item.slug}`}>{item.title}</a></h3>
+                <p>{item.summary}</p>
+              </div>
+            ))}
+            <a class="pill-btn" href={`/${lang}/news`}>{t.newsArchive}</a>
+          </aside>
+        </div>
+
+        <div class="toolbar" id="search">
+          <div class="searchbox">
+            <span class="search-icon">⌕</span>
+            <input type="text" class="search-input" placeholder={t.search} id="searchInput" />
+          </div>
+          <div class="segmented" aria-label="Language switch">
+            <a class={lang === 'zh' ? 'active' : ''} href="/zh">中文</a>
+            <a class={lang === 'en' ? 'active' : ''} href="/en">English</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="shell sections">
+      <section class="section-panel" id="tools">
+        <div class="section-title">
+          <div>
+            <h2>{t.tools}</h2>
+            <span>{lang === 'zh' ? '从适用人群、价格、可靠性和替代品角度评估近期活跃项目' : 'Evaluate active AI projects by fit, pricing, reliability, and alternatives.'}</span>
+          </div>
+          <a class="pill-btn" href={`/${lang}/tools`}>{t.moreReviews}</a>
+        </div>
+        <div class="cards-3">{tools.map((article) => <ArticleCard article={article} lang={lang} />)}</div>
+      </section>
+
+      <section class="section-panel" id="news">
+        <div class="section-title">
+          <div>
+            <h2>{t.news}</h2>
+            <span>{lang === 'zh' ? '每日高热消息摘要，并补充影响分析' : 'Daily high-signal AI news with impact analysis.'}</span>
+          </div>
+          <a class="pill-btn" href={`/${lang}/news`}>{t.newsArchive}</a>
+        </div>
+        <div class="news-list">
+          {news.map((item) => (
+            <article class="news-row">
+              <div><h3><a href={`/${lang}/${item.category}/${item.slug}`}>{item.title}</a></h3><p>{item.summary}</p></div>
+              <span class="tag red">Heat {item.heatScore}</span>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section class="section-panel" id="resources">
+        <div class="section-title">
+          <div>
+            <h2>{t.resources}</h2>
+            <span>{lang === 'zh' ? '免费额度、开源资源、课程和可领取权益，标注时效与限制' : 'Credits, open-source assets, courses, and limited resources with constraints.'}</span>
+          </div>
+          <a class="pill-btn" href={`/${lang}/resources`}>{t.resourceLibrary}</a>
+        </div>
+        <div class="cards-3">{resources.map((article) => <ArticleCard article={article} lang={lang} />)}</div>
+      </section>
+
+      <section class="section-panel" id="research">
+        <div class="section-title">
+          <div>
+            <h2>{t.research}</h2>
+            <span>{lang === 'zh' ? '把近期热门概念讲清楚，给出背景、玩家、争议和判断' : 'Explain hot AI concepts with context, players, controversy, and judgment.'}</span>
+          </div>
+          <a class="pill-btn" href={`/${lang}/research`}>{t.researchTopics}</a>
+        </div>
+        <div class="cards-3">{research.map((article) => <ArticleCard article={article} lang={lang} />)}</div>
+      </section>
+
+      <section class="section-panel" id="prompts">
+        <div class="section-title">
+          <div>
+            <h2>{t.prompts}</h2>
+            <span>{lang === 'zh' ? '精选近三个月内出现或更新、可直接复用的高质量提示词与完整 AI 工作流。' : 'Reusable, high-quality prompts and complete AI workflows published or updated within the past three months.'}</span>
+          </div>
+          <a class="pill-btn" href={`/${lang}/prompts`}>{t.promptLibrary}</a>
+        </div>
+        <div class="cards-3">{prompts.map((article) => <ArticleCard article={article} lang={lang} />)}</div>
+      </section>
+
+      <section class="section-panel" id="personal">
+        <div class="section-title">
+          <div>
+            <h2>{t.personal}</h2>
+            <span>{lang === 'zh' ? '站长项目、APP、教程、提示词和个人整理资源' : 'Owner-managed apps, tutorials, prompts, and curated resources.'}</span>
+          </div>
+          <a class="pill-btn" href={`/${lang}/personal`}>{t.manageResources}</a>
+        </div>
+        {personal.map((resource) => (
+          <div class="resource-strip">
+            <div>
+              <span class="tag teal">{resource.resourceType}</span>
+              <h3>{resource.title}</h3>
+              <p>{resource.description}</p>
+            </div>
+            <a class="pill-btn primary" href={resource.url}>{resource.url === '/app' ? t.openApp : t.readMore}</a>
+          </div>
+        ))}
+      </section>
+
+      <section class="section-panel feedback-panel" id="feedback">
+        <div class="section-title">
+          <div>
+            <h2>{t.feedbackTitle}</h2>
+            <span>{t.feedbackDesc}</span>
+          </div>
+        </div>
+        {feedbackSent && <p class="feedback-success">{t.feedbackSent}</p>}
+        <form class="feedback-form" method="post" action="/api/feedback">
+          <input type="hidden" name="language" value={lang} />
+          <input type="hidden" name="sourcePath" value={Astro.url.pathname} />
+          <div class="feedback-grid">
+            <input class="input" name="name" placeholder={t.feedbackName} maxlength="80" />
+            <input class="input" name="email" type="email" placeholder={t.feedbackEmail} maxlength="160" />
+          </div>
+          <textarea class="input textarea" name="message" placeholder={t.feedbackMessage} rows="5" maxlength="2000" required></textarea>
+          <button class="form-btn primary" type="submit">{t.feedbackSubmit}</button>
+        </form>
+      </section>
+    </section>
+  </main>
+  <script>
+    const input = document.getElementById('searchInput');
+    if (input) {
+      const sections = document.querySelectorAll('.sections .section-panel:not(.feedback-panel)');
+      const allCards = document.querySelectorAll('.sections .card, .sections .news-row, .sections .brief-item, .sections .resource-strip');
+
+      input.addEventListener('input', () => {
+        const query = (input as HTMLInputElement).value.trim().toLowerCase();
+        if (!query) {
+          allCards.forEach(card => (card as HTMLElement).style.display = '');
+          sections.forEach(section => (section as HTMLElement).style.display = '');
+          return;
+        }
+        allCards.forEach(card => {
+          const text = card.textContent?.toLowerCase() ?? '';
+          (card as HTMLElement).style.display = text.includes(query) ? '' : 'none';
+        });
+        sections.forEach(section => {
+          const visibleChildren = section.querySelectorAll('.card:not([style*="display: none"]), .news-row:not([style*="display: none"]), .resource-strip:not([style*="display: none"])');
+          (section as HTMLElement).style.display = visibleChildren.length > 0 ? '' : 'none';
+        });
+      });
+    }
+  </script>
+</BaseLayout>

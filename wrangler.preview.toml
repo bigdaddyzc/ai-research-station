@@ -1,0 +1,24 @@
+name = "acp-ai-research-preview"
+compatibility_date = "2026-07-01"
+main = "dist/server/entry.mjs"
+no_bundle = true
+
+[[rules]]
+type = "ESModule"
+globs = ["**/*.js", "**/*.mjs"]
+
+[assets]
+binding = "ASSETS"
+directory = "dist/client"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "acp_ai_research"
+database_id = "local-preview"
+migrations_dir = "migrations"
+
+[vars]
+PUBLIC_SITE_URL = "http://127.0.0.1:8788"
+AI_PROVIDER = "vertex-ai"
+GOOGLE_CLOUD_PROJECT = "direct-beacon-501110-u7"
+GOOGLE_CLOUD_LOCATION = "us-central1"

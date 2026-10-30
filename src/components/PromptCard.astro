@@ -1,0 +1,55 @@
+---
+import { ArrowRight, Boxes, Copy, Workflow } from 'lucide-astro';
+import { getPromptArtifact } from '../lib/prompt-artifact';
+import type { Article } from '../lib/types';
+import type { UiLanguage } from '../lib/i18n';
+
+interface Props {
+  article: Article;
+  lang: UiLanguage;
+}
+
+const { article, lang } = Astro.props;
+const artifact = getPromptArtifact(article);
+const href = `/${lang}/prompts/${article.slug}`;
+const isWorkflow = artifact.kind === 'workflow';
+const kindLabel = isWorkflow
+  ? (lang === 'zh' ? '工作流' : 'Workflow')
+  : (lang === 'zh' ? '提示词' : 'Prompt');
+const metric = isWorkflow && artifact.stepCount > 0
+  ? `${artifact.stepCount} ${lang === 'zh' ? '步' : 'steps'}`
+  : `${article.readingTime} ${lang === 'zh' ? '分钟' : 'min'}`;
+---
+<article
+  class="prompt-card"
+  data-prompt-card
+  data-kind={artifact.kind}
+  data-search={`${article.title} ${article.summary} ${article.tags.join(' ')}`.toLowerCase()}
+>
+  <div class="prompt-card-topline">
+    <span class:list={['artifact-kind', { workflow: isWorkflow }]}>
+      {isWorkflow ? <Workflow size={15} strokeWidth={2} /> : <Copy size={15} strokeWidth={2} />}
+      {kindLabel}
+    </span>
+    <span class="quality-score" title={lang === 'zh' ? '来源质量评分' : 'Source quality score'}>
+      {article.sourceQualityScore}
+    </span>
+  </div>
+
+  <div class="prompt-card-copy">
+    <h2><a href={href}>{article.title}</a></h2>
+    <p>{article.summary}</p>
+  </div>
+
+  <div class="prompt-card-tags">
+    {article.tags.slice(0, 4).map((tag) => <span class="tag">{tag}</span>)}
+  </div>
+
+  <div class="prompt-card-foot">
+    <span><Boxes size={15} strokeWidth={2} /> {metric}</span>
+    <a href={href} aria-label={`${lang === 'zh' ? '打开' : 'Open'} ${article.title}`}>
+      {lang === 'zh' ? '查看' : 'Open'}
+      <ArrowRight size={16} strokeWidth={2} />
+    </a>
+  </div>
+</article>

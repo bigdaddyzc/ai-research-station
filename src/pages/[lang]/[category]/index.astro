@@ -1,0 +1,146 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import ArticleCard from '../../../components/ArticleCard.astro';
+import PromptCard from '../../../components/PromptCard.astro';
+import { Search, Sparkles } from 'lucide-astro';
+import { getDb, listArticles, listPersonalResources } from '../../../lib/db';
+import { ui, type UiLanguage } from '../../../lib/i18n';
+import type { Category } from '../../../lib/types';
+
+const lang = Astro.params.lang as UiLanguage;
+const category = Astro.params.category as Category;
+const validCategories: Category[] = ['tools', 'news', 'resources', 'research', 'prompts', 'personal'];
+
+if ((lang !== 'zh' && lang !== 'en') || !validCategories.includes(category)) {
+  return Astro.redirect('/zh');
+}
+
+const t = ui[lang];
+const db = await getDb(Astro.locals);
+const isPersonal = category === 'personal';
+const isPrompts = category === 'prompts';
+const articles = isPersonal ? [] : await listArticles(db, lang, { category, limit: 30 });
+const personal = isPersonal ? await listPersonalResources(db, lang) : [];
+const titles: Record<Category, string> = {
+  tools: t.tools,
+  news: t.news,
+  resources: t.resources,
+  research: t.research,
+  prompts: t.prompts,
+  personal: t.personal,
+};
+const desc: Record<Category, string> = lang === 'zh'
+  ? {
+      tools: '近期活跃AI工具与项目的多维度评测。',
+      news: '每日AI热点新闻摘要与影响分析。',
+      resources: '免费额度、开源资源、课程和实用链接。',
+      research: '围绕热门AI概念、技术和市场变化的深度文章。',
+      prompts: '近三个月内出现或更新，并经来源核验的高质量 AI 提示词与可复现工作流。',
+      personal: '站长个人项目、APP、教程和资源整理。',
+    }
+  : {
+      tools: 'Multidimensional reviews of active AI tools and projects.',
+      news: 'Daily AI news briefings with impact analysis.',
+      resources: 'Free credits, open-source resources, courses, and useful links.',
+      research: 'Deep articles on AI concepts, technology shifts, and market changes.',
+      prompts: 'Source-backed, reproducible AI prompts and workflows published or updated within the past three months.',
+      personal: 'Owner-managed apps, tutorials, projects, and personal resources.',
+    };
+---
+<BaseLayout title={`${titles[category]} · ACP AI Research`} description={desc[category]} lang={lang}>
+  <main>
+    <section class="shell page-head">
+      <h1>{titles[category]}</h1>
+      <p>{desc[category]}</p>
+    </section>
+    <section class="shell sections">
+      {isPersonal ? (
+        <div class="section-panel" style="padding: 20px;">
+          {personal.length === 0 && (
+            <p style="color: var(--muted); text-align: center; padding: 40px 0;">
+              {lang === 'zh' ? '暂无个人资源。' : 'No personal resources yet.'}
+            </p>
+          )}
+          {personal.map((resource) => (
+            <div class="resource-strip">
+              <div>
+                <span class="tag teal">{resource.resourceType}</span>
+                <h3>{resource.title}</h3>
+                <p>{resource.description}</p>
+              </div>
+              <a class="pill-btn primary" href={resource.url} target={resource.url.startsWith('/') ? undefined : '_blank'} rel={resource.url.startsWith('/') ? undefined : 'noopener noreferrer'}>
+                {resource.url === '/app' ? t.openApp : t.readMore}
+              </a>
+            </div>
+          ))}
+        </div>
+      ) : isPrompts ? (
+        <div class="prompt-library">
+          <div class="prompt-library-toolbar">
+            <label class="prompt-search">
+              <Search size={18} strokeWidth={2} aria-hidden="true" />
+              <span class="sr-only">{lang === 'zh' ? '搜索提示词和工作流' : 'Search prompts and workflows'}</span>
+              <input
+                type="search"
+                data-prompt-search
+                placeholder={lang === 'zh' ? '搜索场景、模型或工具' : 'Search by use case, model, or tool'}
+                autocomplete="off"
+              />
+            </label>
+            <div class="segmented prompt-filters" aria-label={lang === 'zh' ? '内容类型' : 'Content type'}>
+              <button class="active" type="button" data-prompt-filter="all">{lang === 'zh' ? '全部' : 'All'}</button>
+              <button type="button" data-prompt-filter="prompt">{lang === 'zh' ? '提示词' : 'Prompts'}</button>
+              <button type="button" data-prompt-filter="workflow">{lang === 'zh' ? '工作流' : 'Workflows'}</button>
+            </div>
+          </div>
+
+          <div class="prompt-grid" data-prompt-grid>
+            {articles.map((article) => <PromptCard article={article} lang={lang} />)}
+          </div>
+
+          <div class:list={['prompt-empty', { visible: articles.length === 0 }]} data-prompt-empty>
+            <Sparkles size={22} strokeWidth={1.8} />
+            <h2>{lang === 'zh' ? '正在整理第一批实用模板' : 'The first practical templates are being prepared'}</h2>
+            <p>{lang === 'zh' ? '这里只收录经过来源核验、变量清晰且可复现的提示词与工作流。' : 'Only source-checked, reusable prompts and workflows with clear variables are published here.'}</p>
+          </div>
+        </div>
+      ) : (
+        <div class="cards-3">
+          {articles.map((article) => <ArticleCard article={article} lang={lang} />)}
+        </div>
+      )}
+    </section>
+  </main>
+</BaseLayout>
+
+{isPrompts && (
+  <script>
+    const searchInput = document.querySelector<HTMLInputElement>('[data-prompt-search]');
+    const filterButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-prompt-filter]')];
+    const cards = [...document.querySelectorAll<HTMLElement>('[data-prompt-card]')];
+    const empty = document.querySelector<HTMLElement>('[data-prompt-empty]');
+    let activeFilter = 'all';
+
+    const updateCards = () => {
+      const query = searchInput?.value.trim().toLowerCase() ?? '';
+      let visibleCount = 0;
+      for (const card of cards) {
+        const kindMatches = activeFilter === 'all' || card.dataset.kind === activeFilter;
+        const searchMatches = !query || card.dataset.search?.includes(query);
+        const visible = Boolean(kindMatches && searchMatches);
+        card.hidden = !visible;
+        if (visible) visibleCount += 1;
+      }
+      empty?.classList.toggle('visible', visibleCount === 0);
+    };
+
+    searchInput?.addEventListener('input', updateCards);
+    for (const button of filterButtons) {
+      button.addEventListener('click', () => {
+        activeFilter = button.dataset.promptFilter ?? 'all';
+        filterButtons.forEach((item) => item.classList.toggle('active', item === button));
+        updateCards();
+      });
+    }
+  </script>
+)}

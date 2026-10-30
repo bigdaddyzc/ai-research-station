@@ -1,0 +1,19 @@
+{
+  "extends": "astro/tsconfigs/strict",
+  "compilerOptions": {
+    "types": [
+      "./src/env.d.ts"
+    ]
+  },
+  "exclude": [
+    "dist",
+    "dist-verify",
+    "dist-verify2",
+    "dist-verify3",
+    ".codex-pages-deploy",
+    ".codex-deploy-dryrun",
+    ".wrangler",
+    ".astro",
+    "node_modules"
+  ]
+}

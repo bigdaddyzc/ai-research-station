@@ -1,0 +1,32 @@
+{
+  "name": "acp-ai-research",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev --host 127.0.0.1",
+    "build": "astro check && astro build",
+    "preview": "wrangler dev --config wrangler.preview.toml --port 8788",
+    "preview:build": "npm run build && npm run preview",
+    "pages:prepare": "node scripts/prepare-pages-deploy.mjs",
+    "pages:deploy": "npm run build && npm run pages:prepare && wrangler pages deploy .codex-pages-deploy --project-name acp-ai-research --branch main && wrangler deploy --config wrangler-worker.toml",
+    "generate:local": "node scripts/local-generate.mjs",
+    "generate:server": "node scripts/local-generate-server.mjs",
+    "astro": "astro",
+    "cf:d1:create": "wrangler d1 create acp_ai_research",
+    "cf:d1:migrate:local": "wrangler d1 migrations apply acp_ai_research --local",
+    "cf:d1:migrate:remote": "wrangler d1 migrations apply acp_ai_research --remote",
+    "cf:deploy": "npm run pages:deploy"
+  },
+  "dependencies": {
+    "@astrojs/check": "latest",
+    "@astrojs/cloudflare": "latest",
+    "astro": "latest",
+    "lucide-astro": "latest",
+    "typescript": "latest"
+  },
+  "devDependencies": {
+    "@astrojs/node": "^11.0.0",
+    "wrangler": "latest"
+  }
+}

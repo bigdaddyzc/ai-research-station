@@ -1,0 +1,20 @@
+name = "acp-ai-research"
+main = ".codex-pages-deploy/_worker-scheduled.js"
+compatibility_date = "2026-07-01"
+
+[assets]
+directory = ".codex-pages-deploy"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "acp_ai_research"
+database_id = "9769d3ba-3081-49ad-bb28-01fb2002df6f"
+
+[vars]
+PUBLIC_SITE_URL = "https://acp.dpdns.org"
+AI_PROVIDER = "vertex-ai"
+GOOGLE_CLOUD_PROJECT = "direct-beacon-501110-u7"
+GOOGLE_CLOUD_LOCATION = "us-central1"
+
+[triggers]
+crons = ["0 0 * * *"]

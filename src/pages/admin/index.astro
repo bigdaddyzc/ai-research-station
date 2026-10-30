@@ -1,0 +1,314 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { isAdminAuthenticated } from '../../lib/auth';
+import { getRuntimeEnv } from '../../lib/env';
+import { getDb, listAdminDraftGroups, listAdminPublishedGroups, listAllPersonalResources, listFeedbackSubmissions } from '../../lib/db';
+
+const env = await getRuntimeEnv(Astro.locals);
+const adminPassword = env.ADMIN_PASSWORD ?? '';
+const authed = await isAdminAuthenticated(Astro.request, adminPassword);
+const db = await getDb(Astro.locals);
+const draftGroups = authed ? await listAdminDraftGroups(db) : [];
+const publishedGroups = authed ? await listAdminPublishedGroups(db) : [];
+const personalResources = authed ? await listAllPersonalResources(db) : [];
+const feedbackSubmissions = authed ? await listFeedbackSubmissions(db) : [];
+const formatDate = (value: string | null) => {
+  if (!value) return 'Missing date';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
+---
+<BaseLayout title="Admin · ACP AI Research" description="Review and publish AI-generated drafts." lang="zh">
+  <main class="shell admin-page">
+    <section class="admin-panel">
+      <div class="admin-grid">
+        <div>
+          <h1>Admin Review Desk</h1>
+          <p class="notice">AI-generated content appears here before publication. Approval publishes the paired Chinese and English content group immediately.</p>
+        </div>
+        {authed && (
+          <form method="post" action="/api/admin/logout">
+            <button class="form-btn danger" type="submit">Logout</button>
+          </form>
+        )}
+      </div>
+    </section>
+
+    {!authed && (
+      <section class="admin-panel">
+        <h2>Login</h2>
+        <form method="post" action="/api/admin/login" class="admin-grid">
+          <input class="input" name="password" type="password" placeholder="ADMIN_PASSWORD" autocomplete="current-password" />
+          <button class="form-btn primary" type="submit">Login</button>
+        </form>
+        {!adminPassword && <p class="notice">ADMIN_PASSWORD is not configured. Copy .env.example to .env locally, or set it as a Cloudflare secret.</p>}
+      </section>
+    )}
+
+    {authed && (
+      <>
+        <section class="admin-panel">
+          <div class="admin-grid">
+            <div>
+              <h2>Draft Queue</h2>
+              <p class="notice">{draftGroups.length} content groups are waiting for review. Chinese and English drafts are shown together.</p>
+            </div>
+            <a class="pill-btn" href="/api/cron/daily-generate">Run generation preview</a>
+          </div>
+          {draftGroups.length > 0 && (
+            <div class="batch-toolbar" id="batchToolbar">
+              <label class="batch-select-all"><input type="checkbox" id="selectAll" /> Select All</label>
+              <span class="batch-count" id="batchCount">0 selected</span>
+              <button class="form-btn primary" id="batchApprove" disabled>Batch Approve</button>
+              <button class="form-btn danger" id="batchReject" disabled>Batch Reject</button>
+            </div>
+          )}
+        </section>
+        <section class="admin-panel" id="feedback">
+          <div class="admin-grid">
+            <div>
+              <h2>User Feedback</h2>
+              <p class="notice">{feedbackSubmissions.length} submissions from the public feedback form.</p>
+            </div>
+          </div>
+        </section>
+        {feedbackSubmissions.map((feedback) => (
+          <section class="admin-panel feedback-admin-card">
+            <div class="admin-grid">
+              <div>
+                <div class="lead-meta">
+                  <span class="tag teal">{feedback.language}</span>
+                  <span class="tag blue">{feedback.status}</span>
+                  <span class="tag">{formatDate(feedback.createdAt)}</span>
+                </div>
+                <h3>{feedback.name ?? 'Anonymous'}</h3>
+                <p class="notice">{feedback.email ?? 'No email'}{feedback.sourcePath ? ` · ${feedback.sourcePath}` : ''}</p>
+              </div>
+            </div>
+            <blockquote class="feedback-message">{feedback.message}</blockquote>
+            <form method="post" action="/api/admin/respond-feedback" class="feedback-response-form">
+              <input type="hidden" name="id" value={feedback.id} />
+              <div class="pr-form-grid feedback-status-grid">
+                <label>Status<select name="status" class="input"><option value="new" selected={feedback.status === 'new'}>new</option><option value="reviewing" selected={feedback.status === 'reviewing'}>reviewing</option><option value="responded" selected={feedback.status === 'responded'}>responded</option><option value="closed" selected={feedback.status === 'closed'}>closed</option></select></label>
+              </div>
+              <textarea class="input textarea" name="adminResponse" rows="4" placeholder="Owner response">{feedback.adminResponse ?? ''}</textarea>
+              {feedback.respondedAt && <p class="notice">Responded: {formatDate(feedback.respondedAt)}</p>}
+              <button class="form-btn primary" type="submit">Save response</button>
+            </form>
+          </section>
+        ))}
+        {feedbackSubmissions.length === 0 && (
+          <section class="admin-panel"><p class="notice">No feedback yet.</p></section>
+        )}
+        {draftGroups.map(({ group, articles, sources }) => (
+          <section class="admin-panel draft-group-panel" data-group-id={group.id}>
+            <div class="admin-grid">
+              <div>
+                <div class="lead-meta">
+                  <label class="batch-checkbox"><input type="checkbox" class="group-checkbox" data-group-id={group.id} /></label>
+                  <span class="tag teal">{group.category}</span>
+                  <span class="tag amber">Heat {group.heatScore}</span>
+                  <span class="tag blue">Quality {group.sourceQualityScore}</span>
+                </div>
+                <h2>{group.canonicalSlug}</h2>
+                <p class="notice">{sources.length} sources · status: {group.status}</p>
+              </div>
+              <div class="admin-actions">
+                <form method="post" action="/api/admin/publish">
+                  <input type="hidden" name="groupId" value={group.id} />
+                  <button class="form-btn primary" type="submit">Approve and publish</button>
+                </form>
+                <form method="post" action="/api/admin/reject">
+                  <input type="hidden" name="groupId" value={group.id} />
+                  <button class="form-btn danger" type="submit">Reject</button>
+                </form>
+              </div>
+            </div>
+            <div class="cards-3">
+              {articles.map((article) => (
+                <article class="card">
+                  <span class="tag">{article.language}</span>
+                  <h3>{article.title}</h3>
+                  <p>{article.summary}</p>
+                  <div class="card-foot"><span>{article.readingTime} min</span><span>{article.tags.join(', ')}</span></div>
+                </article>
+              ))}
+            </div>
+            <div class="admin-panel">
+              <h3>Sources</h3>
+              <ul>
+                {sources.map((source) => (
+                  <li>
+                    <a href={source.url} target="_blank" rel="noreferrer">{source.title}</a>
+                    <p class="notice">
+                      {source.publisher ?? 'Unknown'} · {source.sourceType} · Published: {formatDate(source.publishedAt)} · Retrieved: {formatDate(source.retrievedAt)}
+                      {source.groundingVerified ? ' · ✓ grounding-verified' : ' · ⚠ unverified (model-supplied)'}
+                      {source.redirectUrl && !source.urlResolved ? (
+                        <> · <a href={source.redirectUrl} target="_blank" rel="noreferrer">grounding link</a></>
+                      ) : null}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        ))}
+        <section class="admin-panel">
+          <div class="admin-grid">
+            <div>
+              <h2>Published Articles</h2>
+              <p class="notice">{publishedGroups.length} content groups are currently published. You can unpublish (take down) any of them.</p>
+            </div>
+          </div>
+        </section>
+        {publishedGroups.map(({ group, articles, sources }) => (
+          <section class="admin-panel">
+            <div class="admin-grid">
+              <div>
+                <div class="lead-meta">
+                  <span class="tag teal">{group.category}</span>
+                  <span class="tag amber">Heat {group.heatScore}</span>
+                  <span class="tag blue">Quality {group.sourceQualityScore}</span>
+                </div>
+                <h2>{group.canonicalSlug}</h2>
+                <p class="notice">{sources.length} sources · status: {group.status} · published: {formatDate(group.publishedAt)}</p>
+              </div>
+              <div class="admin-actions">
+                <form method="post" action="/api/admin/unpublish">
+                  <input type="hidden" name="groupId" value={group.id} />
+                  <button class="form-btn danger" type="submit">Unpublish</button>
+                </form>
+              </div>
+            </div>
+            <div class="cards-3">
+              {articles.map((article) => (
+                <article class="card">
+                  <span class="tag">{article.language}</span>
+                  <h3>{article.title}</h3>
+                  <p>{article.summary}</p>
+                  <div class="card-foot"><span>{article.tags.join(', ')}</span></div>
+                </article>
+              ))}
+            </div>
+          </section>
+        ))}
+        <section class="admin-panel">
+          <div class="admin-grid">
+            <div>
+              <h2>Personal Resources</h2>
+              <p class="notice">{personalResources.length} personal resources. Add, edit, or remove items shown in the Personal Resources section.</p>
+            </div>
+          </div>
+        </section>
+        {personalResources.map((resource) => (
+          <section class="admin-panel">
+            <form method="post" action="/api/admin/save-personal-resource">
+              <input type="hidden" name="id" value={resource.id} />
+              <div class="admin-grid" style="margin-bottom:12px;">
+                <div class="lead-meta">
+                  <span class="tag teal">{resource.language}</span>
+                  <span class="tag">{resource.resourceType}</span>
+                  {resource.isFeatured && <span class="tag amber">Featured</span>}
+                </div>
+                <div class="admin-actions">
+                  <button class="form-btn primary" type="submit">Save</button>
+                  <button class="form-btn danger" type="submit" formaction="/api/admin/delete-personal-resource" onclick="return confirm('Delete this resource?');">Delete</button>
+                </div>
+              </div>
+              <div class="pr-form-grid">
+                <label>Language<select name="language" class="input"><option value="zh" selected={resource.language === 'zh'}>zh</option><option value="en" selected={resource.language === 'en'}>en</option></select></label>
+                <label>Type<input class="input" name="resourceType" value={resource.resourceType} /></label>
+                <label>Sort<input class="input" name="sortOrder" type="number" value={String(resource.sortOrder)} /></label>
+                <label>Featured<input type="checkbox" name="isFeatured" checked={resource.isFeatured} /></label>
+              </div>
+              <div style="display:grid;gap:8px;margin-top:8px;">
+                <input class="input" name="title" value={resource.title} placeholder="Title" />
+                <input class="input" name="description" value={resource.description} placeholder="Description" />
+                <input class="input" name="url" value={resource.url} placeholder="URL" />
+              </div>
+            </form>
+          </section>
+        ))}
+        <section class="admin-panel">
+          <h3>Add New Personal Resource</h3>
+          <form method="post" action="/api/admin/save-personal-resource">
+            <div class="pr-form-grid">
+              <label>Language<select name="language" class="input"><option value="zh">zh</option><option value="en">en</option></select></label>
+              <label>Type<input class="input" name="resourceType" value="link" /></label>
+              <label>Sort<input class="input" name="sortOrder" type="number" value="0" /></label>
+              <label>Featured<input type="checkbox" name="isFeatured" /></label>
+            </div>
+            <div style="display:grid;gap:8px;margin-top:8px;">
+              <input class="input" name="title" placeholder="Title" required />
+              <input class="input" name="description" placeholder="Description" required />
+              <input class="input" name="url" placeholder="URL (e.g. https://... or /app)" required />
+            </div>
+            <div style="margin-top:12px;">
+              <button class="form-btn primary" type="submit">Add Resource</button>
+            </div>
+          </form>
+        </section>
+      </>
+    )}
+  </main>
+  <script is:inline>
+    (function() {
+      const selectAll = document.getElementById('selectAll');
+      const batchApprove = document.getElementById('batchApprove');
+      const batchReject = document.getElementById('batchReject');
+      const batchCount = document.getElementById('batchCount');
+      if (!selectAll) return;
+
+      const checkboxes = () => Array.from(document.querySelectorAll('.group-checkbox'));
+
+      function updateState() {
+        const boxes = checkboxes();
+        const checked = boxes.filter(c => c.checked);
+        const count = checked.length;
+        batchCount.textContent = count + ' selected';
+        batchApprove.disabled = count === 0;
+        batchReject.disabled = count === 0;
+        selectAll.checked = boxes.length > 0 && count === boxes.length;
+        selectAll.indeterminate = count > 0 && count < boxes.length;
+      }
+
+      selectAll.addEventListener('change', () => {
+        checkboxes().forEach(c => { c.checked = selectAll.checked; });
+        updateState();
+      });
+
+      document.addEventListener('change', (e) => {
+        if (e.target.classList.contains('group-checkbox')) updateState();
+      });
+
+      async function batchAction(action) {
+        const ids = checkboxes().filter(c => c.checked).map(c => c.dataset.groupId);
+        if (ids.length === 0) return;
+        const verb = action === 'publish' ? 'approve and publish' : 'reject';
+        if (!confirm('Batch ' + verb + ' ' + ids.length + ' content group(s)?')) return;
+
+        batchApprove.disabled = true;
+        batchReject.disabled = true;
+
+        try {
+          const res = await fetch('/api/admin/batch-action', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ action, groupIds: ids }),
+          });
+          if (!res.ok) {
+            alert('Batch action failed: ' + (await res.text()));
+            return;
+          }
+          location.reload();
+        } catch (err) {
+          alert('Network error: ' + err.message);
+          updateState();
+        }
+      }
+
+      batchApprove.addEventListener('click', () => batchAction('publish'));
+      batchReject.addEventListener('click', () => batchAction('reject'));
+    })();
+  </script>
+</BaseLayout>
