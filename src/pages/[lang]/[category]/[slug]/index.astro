@@ -1,7 +1,7 @@
 ---
 import BaseLayout from '../../../../layouts/BaseLayout.astro';
 import PromptDetail from '../../../../components/PromptDetail.astro';
-import { getArticleBySlug, getDb, getResearchArtifactsForArticle, getSourcesForGroup } from '../../../../lib/db';
+import { getArticleBySlug, getDb, listArticles, getResearchArtifactsForArticle, getSourcesForGroup } from '../../../../lib/db';
 import { renderMarkdown } from '../../../../lib/markdown';
 import { categoryLabels, ui, type UiLanguage } from '../../../../lib/i18n';
 import type { Category } from '../../../../lib/types';
@@ -25,6 +25,9 @@ if (!article || article.category !== category) {
 const sources = await getSourcesForGroup(db, article.contentGroupId);
 const researchArtifacts = await getResearchArtifactsForArticle(db, article.id);
 const t = ui[lang];
+const sameCategory = (await listArticles(db, lang, { category: article.category, limit: 8 })).filter((item) => item.slug !== article.slug);
+const otherRecent = (await listArticles(db, lang, { limit: 12 })).filter((item) => item.slug !== article.slug && item.category !== article.category);
+const relatedArticles = [...sameCategory.slice(0, 4), ...otherRecent.slice(0, 2)];
 const html = renderMarkdown(article.contentMarkdown);
 const formatDate = (value: string | null) => {
   if (!value) return lang === 'zh' ? '未标注' : 'Not specified';
@@ -164,6 +167,20 @@ const breadcrumbJsonLd = {
         </div>
       </aside>
     </section>
+    )}
+    {relatedArticles.length > 0 && (
+      <section class="shell related-articles" aria-label={lang === 'zh' ? '相关文章' : 'Related articles'}>
+        <h2>{lang === 'zh' ? '相关文章' : 'Related Articles'}</h2>
+        <ul>
+          {relatedArticles.map((item) => (
+            <li>
+              <a href={`/${lang}/${item.category}/${item.slug}`}>{item.title}</a>
+              <span class="tag">{categoryLabels[lang][item.category]}</span>
+            </li>
+          ))}
+        </ul>
+        <p class="notice"><a href={`/${lang}/${article.category}`}>{lang === 'zh' ? `查看更多${categoryLabels[lang][article.category]}` : `More ${categoryLabels[lang][article.category]}`} →</a></p>
+      </section>
     )}
   </main>
 </BaseLayout>

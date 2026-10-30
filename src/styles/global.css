@@ -512,3 +512,8 @@ button, input, textarea { font: inherit; }
   .prompt-copy-block { max-height: 440px; padding: 16px; font-size: 12px; }
   .prompt-detail-sidebar { grid-template-columns: 1fr; }
 }
+
+.related-articles { margin-top: 2rem; margin-bottom: 2rem; }
+.related-articles ul { list-style: none; padding: 0; display: grid; gap: .6rem; }
+.related-articles li { display: flex; gap: .6rem; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(127,127,127,.2); padding: .5rem 0; }
+.related-articles a { text-decoration: none; }

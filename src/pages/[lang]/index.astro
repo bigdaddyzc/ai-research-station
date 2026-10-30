@@ -20,12 +20,27 @@ const prompts = allArticles.filter((article) => article.category === 'prompts').
 const personal = await listPersonalResources(db, lang);
 const lead = allArticles[0];
 const now = new Date();
+const homeTitle = lang === 'zh'
+  ? 'ACP AI 研究站 - 每日 AI 新闻、AI 工具、提示词与免费资源'
+  : 'ACP AI Research - Daily AI News, AI Tools, Prompts & Free Resources';
+const homeDescription = lang === 'zh'
+  ? '每日精选 AI 新闻、AI 工具测评、前沿研究解读、免费 AI 资源与提示词工作流，每篇附可靠来源，中英双语。'
+  : 'Daily AI news, AI tool reviews, research explainers, free AI resources and prompt workflows, each with cited sources. Bilingual.';
+const homeJsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    { '@type': 'WebSite', name: 'ACP AI Research', alternateName: 'ACP AI 研究站', url: `https://acp.dpdns.org/${lang}`, inLanguage: lang === 'zh' ? 'zh-CN' : 'en', description: homeDescription },
+    { '@type': 'Organization', name: 'ACP AI Research', url: 'https://acp.dpdns.org' },
+    { '@type': 'ItemList', itemListElement: allArticles.slice(0, 10).map((article, index) => ({ '@type': 'ListItem', position: index + 1, url: `https://acp.dpdns.org/${lang}/${article.category}/${article.slug}`, name: article.title })) },
+  ],
+};
 const feedbackSent = Astro.url.searchParams.get('feedback') === 'sent';
 const todayText = lang === 'zh'
   ? `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`
   : now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 ---
-<BaseLayout title="ACP AI Research" description="Bilingual AI research and intelligence website." lang={lang}>
+<BaseLayout title={homeTitle} description={homeDescription} lang={lang}>
+  <script type="application/ld+json" set:html={JSON.stringify(homeJsonLd)} is:inline />
   <main>
     <section class="hero" id="today">
       <div class="shell">
