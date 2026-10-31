@@ -19,4 +19,4 @@ GOOGLE_CLOUD_PROJECT = "direct-beacon-501110-u7"
 GOOGLE_CLOUD_LOCATION = "us-central1"
 
 [triggers]
-crons = ["0 0 * * *"]
+crons = ["*/5 0,1 * * *", "0 2 * * *"]
