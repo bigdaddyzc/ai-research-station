@@ -45,7 +45,11 @@ export interface GroundedResult {
 export interface VertexAIConfig {
   project: string;
   location: string;
-  serviceAccountKey: ServiceAccountKey;
+  serviceAccountKey?: ServiceAccountKey;
+  /** When set, calls the Gemini Developer API (generativelanguage.googleapis.com) with this key instead of Vertex AI. */
+  apiKey?: string;
+  /** Overrides the model chosen per category (e.g. a free-tier Gemini API model). */
+  modelOverride?: string;
 }
 
 function base64url(data: Uint8Array): string {
@@ -120,8 +124,15 @@ async function callGenerate(
   prompt: string,
   options: GenerateContentOptions,
 ): Promise<{ text: string; candidate: NonNullable<GenerateContentResponse['candidates']>[number] | undefined }> {
-  const token = await getAccessToken(config.serviceAccountKey);
-  const url = getEndpoint(config.project, config.location, model, 'generateContent');
+  const modelName = config.modelOverride || model;
+  const useApiKey = Boolean(config.apiKey);
+  const url = useApiKey
+    ? `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`
+    : getEndpoint(config.project, config.location, modelName, 'generateContent');
+  const authHeaders: Record<string, string> = useApiKey
+    ? { 'x-goog-api-key': config.apiKey! }
+    : { Authorization: `Bearer ${await getAccessToken(config.serviceAccountKey!)}` };
+  const providerLabel = useApiKey ? 'Gemini API' : 'Vertex AI';
 
   const generationConfig: Record<string, unknown> = {
     temperature: options.temperature ?? 0.7,
@@ -139,21 +150,33 @@ async function callGenerate(
   };
 
   if (options.useGrounding) {
-    body.tools = [{ googleSearch: {} }];
+    body.tools = [useApiKey ? { url_context: {} } : { googleSearch: {} }];
   }
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
+  const doFetch = (target: string) =>
+    fetch(target, {
+      method: 'POST',
+      headers: {
+        ...authHeaders,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+  let res = await doFetch(url);
+  if (useApiKey && (res.status === 503 || res.status === 429 || res.status === 500)) {
+    // Free tier: retry busy/limited models, then fall back to lighter models.
+    const fallbacks = [modelName, 'gemini-3.1-flash-lite', 'gemini-flash-lite-latest'];
+    for (const [i, m] of fallbacks.entries()) {
+      await new Promise((r) => setTimeout(r, 4000 * (i + 1)));
+      res = await doFetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`);
+      if (res.ok || (res.status !== 503 && res.status !== 429 && res.status !== 500)) break;
+    }
+  }
 
   if (!res.ok) {
     const errorText = await res.text();
-    throw new Error(`Vertex AI ${res.status}: ${errorText}`);
+    throw new Error(`${providerLabel} ${res.status}: ${errorText.slice(0, 1500)}`);
   }
 
   const responseText = await res.text();
@@ -161,10 +184,10 @@ async function callGenerate(
   try {
     data = JSON.parse(responseText) as GenerateContentResponse;
   } catch (parseErr) {
-    throw new Error(`Vertex AI response body is not valid JSON (${(parseErr as Error).message}). Body prefix: ${responseText.slice(0, 300)}`);
+    throw new Error(`${providerLabel} response body is not valid JSON (${(parseErr as Error).message}). Body prefix: ${responseText.slice(0, 300)}`);
   }
   if (data.error) {
-    throw new Error(`Vertex AI error: ${data.error.message}`);
+    throw new Error(`${providerLabel} error: ${data.error.message}`);
   }
 
   const candidate = data.candidates?.[0];

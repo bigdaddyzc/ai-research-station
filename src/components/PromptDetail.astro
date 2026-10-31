@@ -23,13 +23,13 @@ const labels = lang === 'zh'
   ? {
       prompt: '提示词', workflow: '工作流', copy: '复制提示词', copied: '已复制',
       variables: '输入变量', noVariables: '无需替换变量', steps: '执行步骤',
-      source: '验证来源', sourceNote: '内容经来源核验，实际效果会随模型与上下文变化。',
+      source: '验证来源', sourceNote: '由 AI 根据所列来源整理，自动评分筛选后发布，未经逐篇人工审核；实际效果会随模型与上下文变化。',
       published: '已发布', fallback: '请从下方正文中的“核心提示词”部分复制使用。',
     }
   : {
       prompt: 'Prompt', workflow: 'Workflow', copy: 'Copy prompt', copied: 'Copied',
       variables: 'Input variables', noVariables: 'No variables to replace', steps: 'Workflow steps',
-      source: 'Verification sources', sourceNote: 'Source-checked. Results can vary by model and context.',
+      source: 'Verification sources', sourceNote: 'AI-compiled from the listed sources and published after automated checks, not individually human-reviewed. Results vary by model and context.',
       published: 'Published', fallback: 'Copy the content from the Core Prompt section below.',
     };
 ---
@@ -45,7 +45,11 @@ const labels = lang === 'zh'
         <span class="tag">{labels.published}</span>
       </div>
       <h1>{article.title}</h1>
-      <p class="summary">{article.summary}</p>
+      <p class="byline notice">{lang === 'zh' ? 'ACP AI 编辑部' : 'ACP AI Research Editors'} · {lang === 'zh' ? '发布' : 'Published'} {new Date(article.publishedAt ?? Date.now()).toISOString().slice(0, 10)}</p>
+      <div class="answer-box">
+        <strong>{lang === 'zh' ? '适合做什么' : 'What this is for'}</strong>
+        <p class="summary">{article.summary}</p>
+      </div>
       <div class="prompt-detail-tags">
         {article.tags.map((tag) => <span class="tag">{tag}</span>)}
       </div>
