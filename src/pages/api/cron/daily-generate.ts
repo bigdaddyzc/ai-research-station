@@ -1,4 +1,5 @@
 import { postPublishedToTelegram } from '../../../lib/telegram';
+import { submitIndexNow, urlsForGroups } from '../../../lib/indexnow';
 import type { APIRoute } from 'astro';
 import { getRuntimeEnv } from '../../../lib/env';
 import { runDailyGeneration, type GenerationResult } from '../../../lib/generation';
@@ -75,7 +76,13 @@ export const GET: APIRoute = async ({ locals, url, request }) => {
       const review = await runAutoReview(runtimeEnv.DB, limit);
       const publishedIds = review.decisions.filter((d) => d.action === 'published').map((d) => d.id);
       const telegram = await postPublishedToTelegram(runtimeEnv, publishedIds);
-      return new Response(JSON.stringify({ review, telegram }, null, 2), { headers: { 'content-type': 'application/json; charset=utf-8' } });
+      let indexnow: unknown = null;
+      try {
+        indexnow = await submitIndexNow(await urlsForGroups(runtimeEnv, publishedIds));
+      } catch (e) {
+        indexnow = { error: e instanceof Error ? e.message : String(e) };
+      }
+      return new Response(JSON.stringify({ review, telegram, indexnow }, null, 2), { headers: { 'content-type': 'application/json; charset=utf-8' } });
     }
     // reviewOnly=1: skip generation and just run the auto-review (used after a batch).
     if (url.searchParams.get('reviewOnly') === '1') {
