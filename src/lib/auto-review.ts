@@ -24,6 +24,9 @@ const MIN_SOURCE_QUALITY = 60;
 const MIN_ZH_BODY_CHARS = 600;
 const MIN_EN_BODY_CHARS = 1200;
 const MAX_AGE_HOURS = 48;
+/** prompts/workflow articles draw little attention: publish only clearly important ones, at most 1 per 7 days. */
+const PROMPTS_MIN_HEAT = 90;
+const PROMPTS_MIN_SCORE = 85;
 
 type Candidate = {
   id: string;
@@ -103,6 +106,8 @@ async function loadCandidates(db: D1Database): Promise<Candidate[]> {
     else if (c.zhLength < MIN_ZH_BODY_CHARS) c.gateFailure = 'missing or too-short Chinese article';
     else if (c.enLength < MIN_EN_BODY_CHARS) c.gateFailure = 'missing or too-short English article';
     else if (c.sourceQuality < MIN_SOURCE_QUALITY) c.gateFailure = `source quality ${c.sourceQuality} < ${MIN_SOURCE_QUALITY}`;
+    else if (c.category === 'prompts' && (c.heat < PROMPTS_MIN_HEAT || c.score < PROMPTS_MIN_SCORE))
+      c.gateFailure = `prompts article not important enough (heat ${c.heat} < ${PROMPTS_MIN_HEAT} or score ${c.score} < ${PROMPTS_MIN_SCORE})`;
     return c;
   });
 }
@@ -129,10 +134,19 @@ export async function runAutoReview(db: D1Database | undefined, limit = DEFAULT_
   result.alreadyPublishedToday = await countPublishedToday(db);
   let slots = Math.max(0, limit - result.alreadyPublishedToday);
 
+  // At most one prompts article per 7 days.
+  const promptsPublishedRecently = Number(
+    (await db.prepare("SELECT COUNT(*) AS n FROM content_groups WHERE category = 'prompts' AND status = 'published' AND published_at > datetime('now', '-7 days')").first<Record<string, unknown>>())?.n ?? 0,
+  );
+  let promptsSlots = promptsPublishedRecently > 0 ? 0 : 1;
+  for (const c of candidates) {
+    if (!c.gateFailure && c.category === 'prompts' && promptsSlots <= 0) c.gateFailure = 'prompts article already published in the last 7 days';
+  }
+
   const eligible = candidates.filter((c) => !c.gateFailure).sort((a, b) => b.score - a.score);
-  // Category diversity first: best of each category, then the rest by score.
+  // Category diversity first: best of each category (prompts gets no guaranteed slot), then the rest by score.
   const seen = new Set<string>();
-  const firstPass = eligible.filter((c) => (seen.has(c.category) ? false : (seen.add(c.category), true)));
+  const firstPass = eligible.filter((c) => c.category !== 'prompts' && (seen.has(c.category) ? false : (seen.add(c.category), true)));
   const ordered = [...firstPass, ...eligible.filter((c) => !firstPass.includes(c))];
 
   // Topics already covered: primary sources of everything published in the last 14 days.
@@ -150,10 +164,15 @@ export async function runAutoReview(db: D1Database | undefined, limit = DEFAULT_
       c.gateFailure = 'duplicate topic (primary source already covered)';
       continue;
     }
+    if (c.category === 'prompts' && promptsSlots <= 0) {
+      c.gateFailure = 'prompts limit of 1 per 7 days reached';
+      continue;
+    }
     const pub = await publishContentGroup(db, c.id);
     handled.add(c.id);
     if (pub.ok) {
       slots -= 1;
+      if (c.category === 'prompts') promptsSlots -= 1;
       const urls = (await db.prepare('SELECT url FROM sources WHERE content_group_id = ?').bind(c.id).all<Record<string, unknown>>()).results ?? [];
       for (const r of urls) usedUrls.add(String(r.url));
       result.published += 1;

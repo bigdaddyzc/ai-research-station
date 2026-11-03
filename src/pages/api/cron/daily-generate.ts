@@ -59,7 +59,12 @@ export const GET: APIRoute = async ({ locals, url, request }) => {
       const fails = await db.prepare("SELECT input_summary s, COUNT(*) n FROM generation_jobs WHERE job_type = 'step' AND status = 'failed' AND started_at >= date('now') GROUP BY input_summary").all<{ s: string; n: number }>();
       const madeMap = new Map((made.results ?? []).map((r) => [r.category, r.n]));
       const failMap = new Map((fails.results ?? []).map((r) => [r.s, r.n]));
-      const next = order.find((c) => (madeMap.get(c) ?? 0) < 2 && (failMap.get(`step:${c}`) ?? 0) < 3);
+      // prompts/workflow articles get low attention: generate at most 1 draft, and only when
+      // no prompts article was published in the last 7 days and none was drafted in the last 3 days.
+      const promptsRecent = await db.prepare("SELECT (SELECT COUNT(*) FROM content_groups WHERE category = 'prompts' AND status = 'published' AND published_at > datetime('now', '-7 days')) AS pub, (SELECT COUNT(*) FROM content_groups WHERE category = 'prompts' AND created_at > datetime('now', '-3 days')) AS made").first<{ pub: number; made: number }>();
+      const promptsAllowed = Number(promptsRecent?.pub ?? 0) === 0 && Number(promptsRecent?.made ?? 0) === 0;
+      const quota = (c: Category) => (c === 'prompts' ? (promptsAllowed ? 1 : 0) : 2);
+      const next = order.find((c) => (madeMap.get(c) ?? 0) < quota(c) && (failMap.get(`step:${c}`) ?? 0) < 3);
       if (!next) {
         return new Response(JSON.stringify({ step: 'done', made: Object.fromEntries(madeMap) }), { headers: { 'content-type': 'application/json; charset=utf-8' } });
       }
