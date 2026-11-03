@@ -420,7 +420,16 @@ async function generateAllCategories(config: VertexAIConfig, db: D1Database | un
 
 async function generateDraft(config: VertexAIConfig, category: Exclude<Category, 'personal'>, topic?: string, db?: D1Database, windowDays?: number): Promise<GeneratedDraft> {
   const existingSlugs = db ? await getExistingSlugs(db, category) : [];
-  const facts = await generateFactPack(config, category, topic, existingSlugs, windowDays);
+  const usedUrls = db ? await getUsedSourceUrls(db) : new Set<string>();
+  const facts = await generateFactPack(config, category, topic, existingSlugs, windowDays, usedUrls);
+
+  // Cross-category dedupe: skip when the fact pack's sources were already covered
+  // by any article (draft, published or rejected) in the last 60 days.
+  const factUrls = (Array.isArray(facts.sources) ? facts.sources : []).map((src) => normalizeSourceUrl(String(src?.url ?? ''))).filter(Boolean);
+  const overlap = factUrls.filter((u) => usedUrls.has(u));
+  if (factUrls.length > 0 && (usedUrls.has(factUrls[0]) || overlap.length * 2 >= factUrls.length)) {
+    throw new Error(`Duplicate source detected: ${overlap[0]} was already covered. Skipping.`);
+  }
 
   if (facts.canonicalSlug && existingSlugs.some(s => s === facts.canonicalSlug || facts.canonicalSlug!.includes(s) || s.includes(facts.canonicalSlug!))) {
     throw new Error(`Duplicate topic detected: "${facts.canonicalSlug}" overlaps with an existing article. Skipping.`);
@@ -433,6 +442,23 @@ async function generateDraft(config: VertexAIConfig, category: Exclude<Category,
     draft.sources = facts.sources;
   }
   return normalizeDraft(draft, category);
+}
+
+export function normalizeSourceUrl(raw: string): string {
+  try {
+    const u = new URL(raw.trim());
+    const path = u.pathname.replace(/\/+$/, '');
+    return `${u.hostname.toLowerCase().replace(/^www\./, '')}${path}`;
+  } catch {
+    return '';
+  }
+}
+
+async function getUsedSourceUrls(db: D1Database): Promise<Set<string>> {
+  const result = await db
+    .prepare("SELECT DISTINCT s.url FROM sources s JOIN content_groups g ON g.id = s.content_group_id WHERE g.created_at >= datetime('now', '-60 days')")
+    .all<Record<string, unknown>>();
+  return new Set((result.results ?? []).map((r) => normalizeSourceUrl(String(r.url))).filter(Boolean));
 }
 
 async function getExistingSlugs(db: D1Database, category: Exclude<Category, 'personal'>): Promise<string[]> {
@@ -450,7 +476,7 @@ function getModelForCategory(category: Exclude<Category, 'personal'>): string {
   return 'gemini-3.6-flash';
 }
 
-async function generateFactPack(config: VertexAIConfig, category: Exclude<Category, 'personal'>, topic?: string, existingSlugs: string[] = [], windowDays?: number): Promise<FactPack> {
+async function generateFactPack(config: VertexAIConfig, category: Exclude<Category, 'personal'>, topic?: string, existingSlugs: string[] = [], windowDays?: number, usedUrls: Set<string> = new Set()): Promise<FactPack> {
   const categoryConfig = CATEGORY_CONFIGS[category];
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' });
   const freshnessWindow = getFreshnessWindow(category);
@@ -461,9 +487,11 @@ async function generateFactPack(config: VertexAIConfig, category: Exclude<Catego
   let candidateBlock = '';
   if (config.apiKey) {
     const oldest = windowDays ? new Date(Date.now() - windowDays * 86_400_000) : getOldestAllowedSourceDate(category);
-    const candidates = await fetchCandidateSources(category, oldest);
+    const candidates = (await fetchCandidateSources(category, oldest, 60))
+      .filter((c) => !usedUrls.has(normalizeSourceUrl(c.url)))
+      .slice(0, 25);
     if (candidates.length === 0) {
-      throw new Error(`No fresh candidate sources found in feeds for ${category}.`);
+      throw new Error(`No fresh, uncovered candidate sources found in feeds for ${category}.`);
     }
     candidateBlock = `\nFRESH CANDIDATE SOURCES (pulled from RSS feeds today; pick ONE topic from these, open the chosen URLs with the URL context tool to read them, and cite ONLY URLs you actually read — these and links inside them):\n${candidates
       .map((c, i) => `${i + 1}. [${c.publishedAt}] ${c.title} — ${c.url}`)
