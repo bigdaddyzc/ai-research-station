@@ -441,7 +441,100 @@ async function generateDraft(config: VertexAIConfig, category: Exclude<Category,
   if (Array.isArray(facts.sources) && facts.sources.length > 0) {
     draft.sources = facts.sources;
   }
+  const finalSources = (Array.isArray(draft.sources) ? draft.sources : [])
+    .slice(0, 6)
+    .map((s) => tryNormalizeSource(s, category))
+    .filter((s): s is GeneratedSource => s !== null);
+  if (finalSources.length > 0 && Array.isArray(draft.articles)) {
+    draft.sources = finalSources;
+    draft.articles = draft.articles.map((a) => rebuildReferences(a, finalSources));
+  }
   return normalizeDraft(draft, category);
+}
+
+function isHomepageUrl(raw: string): boolean {
+  try {
+    const u = new URL(raw.trim());
+    return u.pathname.replace(/\/+$/, '') === '' && !u.search;
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Drop homepage URLs and already-covered secondary sources from a fact pack, then,
+ * if fewer than 2 usable sources remain, run ONE supplemental search to find fresh,
+ * uncovered sources for the same topic (instead of failing the whole topic).
+ * A topic whose primary (first) source was already covered is a duplicate: throw early.
+ */
+async function refillSources(
+  config: VertexAIConfig,
+  category: Exclude<Category, 'personal'>,
+  facts: FactPack,
+  usedUrls: Set<string>,
+): Promise<GeneratedSource[]> {
+  const all = Array.isArray(facts.sources) ? facts.sources : [];
+  const first = all.find((s) => !isHomepageUrl(String(s?.url ?? '')));
+  if (first && usedUrls.has(normalizeSourceUrl(String(first.url)))) {
+    throw new Error(`Duplicate source detected: ${normalizeSourceUrl(String(first.url))} was already covered. Skipping.`);
+  }
+  const usable = (list: GeneratedSource[]) => {
+    const seen = new Set<string>();
+    return list.filter((s) => {
+      const key = normalizeSourceUrl(String(s?.url ?? ''));
+      if (!key || seen.has(key) || usedUrls.has(key) || isHomepageUrl(String(s.url))) return false;
+      if (!tryNormalizeSource(s, category)) return false; // stale or missing fields
+      seen.add(key);
+      return true;
+    });
+  };
+  let kept = usable(all);
+  if (kept.length >= 2) return kept;
+
+  const oldestAllowedDate = getOldestAllowedSourceDate(category).toISOString().slice(0, 10);
+  const exclude = [...kept.map((s) => s.url), ...all.map((s) => s.url)].filter(Boolean);
+  const prompt = `Find 1-3 additional real, currently accessible sources about this topic for an AI news article.
+Topic: ${facts.topic ?? facts.canonicalSlug ?? ''}
+Key facts: ${(facts.keyFacts ?? []).slice(0, 6).join(' | ')}
+Already have (do NOT return these): ${exclude.join(', ') || 'none'}
+Rules:
+- Each source must be a specific article/post/repo/release page about this topic, never a site homepage.
+- Published on or after ${oldestAllowedDate}; give the visible publication date.
+- Prefer primary sources (official blog/repo/release, author post) or reputable outlets. Never fabricate a URL.
+Reply with JSON only: {"sources":[{"url":"https://...","title":"...","publisher":"...","publishedAt":"YYYY-MM-DD","reliabilityScore":0-100}]}`;
+  try {
+    const { text, groundingSources } = await generateGroundedContent(config, getModelForCategory(category), prompt, {
+      temperature: 0.2,
+      maxOutputTokens: 2048,
+      withSearch: true,
+    });
+    const parsed = parseJsonObject(text) as { sources?: GeneratedSource[] };
+    const extra = await crossCheckSources(Array.isArray(parsed?.sources) ? parsed.sources : [], groundingSources);
+    kept = usable([...kept, ...extra]);
+  } catch (error) {
+    console.warn(`Supplemental source search failed for ${category}: ${formatGenerationError(error)}`);
+  }
+  return kept;
+}
+
+/**
+ * Rewrite each article's reference section from the final source list and drop
+ * inline [N] citations beyond it, so a model numbering slip no longer burns a retry.
+ */
+function rebuildReferences(article: GeneratedArticle, sources: GeneratedSource[]): GeneratedArticle {
+  const zh = article.language === 'zh';
+  let body = String(article.contentMarkdown ?? '');
+  const headingRe = zh ? /^#{1,4}\s*参考来源.*$/gm : /^#{1,4}\s*(?:Sources|References).*$/gim;
+  let last: RegExpExecArray | null = null;
+  for (let m = headingRe.exec(body); m; m = headingRe.exec(body)) last = m;
+  const heading = last ? last[0] : (zh ? '### 参考来源' : '### Sources');
+  if (last) body = body.slice(0, last.index).trimEnd();
+  const n = sources.length;
+  body = body.replace(/\[(\d+)\](?!\()/g, (all, d) => (Number(d) >= 1 && Number(d) <= n ? all : ''));
+  const list = sources
+    .map((s, i) => `${i + 1}. [${s.title}](${s.url}) — ${s.publisher || 'Unknown'}, ${s.publishedAt}`)
+    .join('\n');
+  return { ...article, contentMarkdown: `${body}\n\n${heading}\n\n${list}\n` };
 }
 
 export function normalizeSourceUrl(raw: string): string {
@@ -544,6 +637,7 @@ ${diversityRule}
       facts.sources = await crossCheckSources(rawSources, groundingSources);
       // Fail fast (and retry) when a hard-requirement category lacks a verified
       // social/code/blog source; soft categories only log.
+      facts.sources = await refillSources(config, category, facts, usedUrls);
       enforceSourceDiversity(facts.sources, category);
       return facts;
     } catch (error) {

@@ -107,6 +107,8 @@ export interface GenerateContentOptions {
   temperature?: number;
   maxOutputTokens?: number;
   useGrounding?: boolean;
+  /** Gemini API only: also enable google_search alongside url_context. */
+  withSearch?: boolean;
 }
 
 // Models only available on the global endpoint (not regional)
@@ -150,7 +152,9 @@ async function callGenerate(
   };
 
   if (options.useGrounding) {
-    body.tools = [useApiKey ? { url_context: {} } : { googleSearch: {} }];
+    body.tools = useApiKey
+      ? (options.withSearch ? [{ url_context: {} }, { google_search: {} }] : [{ url_context: {} }])
+      : [{ googleSearch: {} }];
   }
 
   const doFetch = (target: string) =>
