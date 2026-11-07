@@ -68,7 +68,14 @@ export const GET: APIRoute = async ({ locals, url, request }) => {
       if (!next) {
         return new Response(JSON.stringify({ step: 'done', made: Object.fromEntries(madeMap) }), { headers: { 'content-type': 'application/json; charset=utf-8' } });
       }
-      const gen = await runDailyGeneration(runtimeEnv, { category: next });
+      let gen: GenerationResult;
+      try {
+        gen = await runDailyGeneration(runtimeEnv, { category: next });
+      } catch (stepError) {
+        // Count thrown errors against this category too, so a category that keeps failing
+        // is skipped after 3 attempts instead of eating the whole generation window.
+        gen = { provider: 'vertex-ai', createdDrafts: 0, message: stepError instanceof Error ? stepError.message : String(stepError) } as GenerationResult;
+      }
       if (gen.createdDrafts === 0) {
         await db.prepare("INSERT INTO generation_jobs (id, job_type, status, started_at, finished_at, model_provider, input_summary, error_message) VALUES (?, 'step', 'failed', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, ?)")
           .bind(crypto.randomUUID(), gen.provider, `step:${next}`, gen.message.slice(0, 2000)).run();
