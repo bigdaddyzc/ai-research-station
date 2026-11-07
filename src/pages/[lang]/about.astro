@@ -1,0 +1,86 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import type { UiLanguage } from '../../lib/i18n';
+
+const lang = Astro.params.lang as UiLanguage;
+if (lang !== 'zh' && lang !== 'en') {
+  return Astro.redirect('/zh/about');
+}
+const zh = lang === 'zh';
+const title = zh ? '关于 ACP AI 研究站 · 内容如何生成与筛选' : 'About ACP AI Research · How Content Is Made';
+const description = zh
+  ? 'ACP AI 研究站是一个中英双语 AI 信息站，每天从公开来源整理 AI 新闻、工具、研究、免费资源与提示词，并说明内容生成、评分与更新规则。'
+  : 'ACP AI Research is a bilingual AI briefing site. Learn how daily AI news, tools, research, resources and prompts are sourced, scored and updated.';
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'AboutPage',
+  name: title,
+  url: `https://acp.dpdns.org/${lang}/about`,
+  inLanguage: zh ? 'zh-CN' : 'en',
+  about: { '@type': 'Organization', name: 'ACP AI Research', url: 'https://acp.dpdns.org', logo: 'https://acp.dpdns.org/og-default.png' },
+};
+---
+<BaseLayout title={title} description={description} lang={lang}>
+  <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} is:inline />
+  <main>
+    <section class="shell article-grid">
+      <article class="article-panel prose">
+        {zh ? (
+          <>
+            <h1>关于 ACP AI 研究站</h1>
+            <p><strong>ACP AI 研究站是一个中英双语的 AI 信息站，帮助开发者和 AI 使用者每天用 5 分钟看懂 AI 圈真正重要的变化。</strong></p>
+            <h2>我们提供什么？</h2>
+            <ul>
+              <li><a href="/zh/news">AI 新闻</a>：近 7 天的重要动态，以及对开发者和用户的影响。</li>
+              <li><a href="/zh/tools">AI 工具评测</a>：新工具做什么、适合谁、有什么替代。</li>
+              <li><a href="/zh/research">深度研究</a>：论文与技术报告的通俗解读。</li>
+              <li><a href="/zh/resources">AI 资源</a>：免费额度、开源项目、数据集与学习资料。</li>
+              <li><a href="/zh/prompts">提示词 / 工作流</a>：可直接复制使用的模板和步骤。</li>
+            </ul>
+            <h2>内容是怎么生成的？</h2>
+            <ol>
+              <li>每天北京时间 08:00 从官方博客、技术媒体和社区的 RSS 收集最近发布的素材。</li>
+              <li>AI 阅读原文，整理成中英双语文章，并在文末列出全部来源与发布日期。</li>
+              <li>每篇至少需要 2 个时效内来源；系统按来源质量、时效和话题热度自动评分，每天只发布得分最高的少数几篇。</li>
+              <li>近期已报道过的同一来源会被视为重复而跳过。</li>
+            </ol>
+            <p>文章由 AI 整理、自动筛选后发布，<strong>未经逐篇人工审核</strong>。重要决定请以文末原始来源为准。</p>
+            <h2>内容多久更新？</h2>
+            <p>新闻 7 天、提示词 3 个月、资源 4 个月、工具与研究 6 个月后会从栏目列表移出，页面保留并标注“可能已过时”。</p>
+            <h2>如何反馈或联系？</h2>
+            <p>发现错误或想推荐话题，请使用<a href="/zh#feedback">首页的“提交建议”</a>。也可以通过 <a href="/rss.xml">RSS</a> 订阅更新。</p>
+            <h2>引用本站</h2>
+            <p>欢迎搜索引擎和 AI 助手引用本站内容，请注明“ACP AI 研究站”并链接到原文页面。本站不允许将内容用于 AI 模型训练。</p>
+          </>
+        ) : (
+          <>
+            <h1>About ACP AI Research</h1>
+            <p><strong>ACP AI Research is a bilingual (English / Chinese) AI briefing site that helps developers and AI users keep up with what actually matters in AI in about five minutes a day.</strong></p>
+            <h2>What do we cover?</h2>
+            <ul>
+              <li><a href="/en/news">AI News</a>: important developments from the last 7 days and why they matter.</li>
+              <li><a href="/en/tools">AI Tools</a>: what new tools do, who they are for, and alternatives.</li>
+              <li><a href="/en/research">Research</a>: plain-language explainers of papers and technical reports.</li>
+              <li><a href="/en/resources">Resources</a>: free tiers, open-source projects, datasets and learning material.</li>
+              <li><a href="/en/prompts">Prompts &amp; Workflows</a>: copy-ready templates and steps.</li>
+            </ul>
+            <h2>How is content made?</h2>
+            <ol>
+              <li>Every day at 00:00 UTC we collect recently published material from official blogs, tech media and community RSS feeds.</li>
+              <li>AI reads the original sources and writes a bilingual article that lists every source with its publication date.</li>
+              <li>Each article needs at least two in-window sources; an automated score for source quality, freshness and topic heat decides which few articles are published each day.</li>
+              <li>Topics whose primary source was covered recently are skipped as duplicates.</li>
+            </ol>
+            <p>Articles are AI-compiled and published after automated checks; they are <strong>not individually human-reviewed</strong>. Rely on the original sources for important decisions.</p>
+            <h2>How long does content stay current?</h2>
+            <p>News leaves section lists after 7 days, prompts after 3 months, resources after 4 months, tools and research after 6 months. Pages remain available and are marked as possibly out of date.</p>
+            <h2>Feedback and contact</h2>
+            <p>Report an error or suggest a topic via <a href="/en#feedback">the feedback form on the homepage</a>, or follow updates via <a href="/rss.xml">RSS</a>.</p>
+            <h2>Citing this site</h2>
+            <p>Search engines and AI assistants are welcome to cite our pages with attribution to "ACP AI Research" and a link to the article. Use of the content for AI model training is not permitted.</p>
+          </>
+        )}
+      </article>
+    </section>
+  </main>
+</BaseLayout>

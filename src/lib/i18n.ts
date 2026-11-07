@@ -21,7 +21,7 @@ export const ui = {
     feedbackSent: '已收到，谢谢你的建议。',
     search: '搜索工具、概念、新闻、资源，例如：MCP、Gemini、AI Browser',
     admin: 'Admin',
-    reviewed: '人工审核后发布',
+    reviewed: '每篇附来源',
     bilingual: '中文/English 双语同步',
     readMore: '阅读全文',
     moreReviews: '更多评测',
@@ -38,7 +38,7 @@ export const ui = {
     appTitle: 'ACP APP 宣传页',
     appDesc: '原有APP宣传内容将保留为独立 /app 页面，并作为个人资源区的固定入口展示。',
     openApp: '打开 /app',
-    footer: 'ACP AI Research · AI辅助生成，站长审核后发布',
+    footer: 'ACP AI Research · AI 根据公开来源整理，自动评分筛选后发布',
   },
   en: {
     today: 'Today',
@@ -58,7 +58,7 @@ export const ui = {
     feedbackSent: 'Received. Thanks for the suggestion.',
     search: 'Search tools, concepts, news, and resources, such as MCP, Gemini, AI Browser',
     admin: 'Admin',
-    reviewed: 'Published after human review',
+    reviewed: 'Every post cites sources',
     bilingual: 'Chinese/English parity',
     readMore: 'Read more',
     moreReviews: 'More reviews',
@@ -75,7 +75,7 @@ export const ui = {
     appTitle: 'ACP App Page',
     appDesc: 'The original app promotion page remains available at /app and appears as a featured personal resource.',
     openApp: 'Open /app',
-    footer: 'ACP AI Research · AI-assisted, owner-reviewed before publication',
+    footer: 'ACP AI Research · AI-compiled from public sources, published after automated quality checks',
   },
 };
 

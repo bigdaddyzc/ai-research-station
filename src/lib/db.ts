@@ -61,7 +61,7 @@ export async function getArticleBySlug(db: D1Database | undefined, language: Lan
       `SELECT a.*, g.category, g.status, g.heat_score, g.source_quality_score, g.published_at
        FROM articles a
        JOIN content_groups g ON g.id = a.content_group_id
-       WHERE a.language = ? AND a.slug = ? AND g.status = 'published'
+       WHERE a.language = ? AND a.slug = ? AND g.status IN ('published', 'archived')
        LIMIT 1`,
     )
     .bind(language, slug)

@@ -4,6 +4,13 @@ export function renderMarkdown(markdown: string): string {
   let paragraph: string[] = [];
   let listStack: Array<'ul' | 'ol'> = [];
   let codeBlock: string[] | null = null;
+  let inTable = false;
+  const closeTable = () => {
+    if (inTable) {
+      html.push('</tbody></table></div>');
+      inTable = false;
+    }
+  };
 
   const flushParagraph = () => {
     if (paragraph.length > 0) {
@@ -47,6 +54,7 @@ export function renderMarkdown(markdown: string): string {
     }
 
     if (!trimmed) {
+      closeTable();
       flushParagraph();
       closeAllLists();
       continue;
@@ -61,6 +69,21 @@ export function renderMarkdown(markdown: string): string {
       html.push(`<h${level}>${inlineFormat(text)}</h${level}>`);
       continue;
     }
+
+    if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+      flushParagraph();
+      closeAllLists();
+      const cells = trimmed.slice(1, -1).split('|').map((c) => c.trim());
+      if (cells.every((c) => /^:?-{2,}:?$/.test(c))) continue;
+      if (!inTable) {
+        html.push('<div class="table-wrap"><table><thead><tr>' + cells.map((c) => `<th>${inlineFormat(c)}</th>`).join('') + '</tr></thead><tbody>');
+        inTable = true;
+      } else {
+        html.push('<tr>' + cells.map((c) => `<td>${inlineFormat(c)}</td>`).join('') + '</tr>');
+      }
+      continue;
+    }
+    closeTable();
 
     const ulMatch = trimmed.match(/^[*\-+]\s+(.+)$/);
     if (ulMatch) {
@@ -96,6 +119,7 @@ export function renderMarkdown(markdown: string): string {
     paragraph.push(trimmed);
   }
 
+  closeTable();
   flushParagraph();
   closeAllLists();
   if (codeBlock) html.push(`<pre><code>${escapeHtml(codeBlock.join('\n'))}</code></pre>`);
@@ -108,6 +132,11 @@ function inlineFormat(text: string): string {
   s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   s = s.replace(/(?<!\w)\*([^*]+)\*(?!\w)/g, '<em>$1</em>');
   s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+  s = s.replace(/(^|[\s(（：:])(https?:\/\/[^\s<>"'）)]+)/g, (_m, pre: string, url: string) => {
+    let label = url;
+    try { label = new URL(url.replaceAll('&amp;', '&')).hostname.replace(/^www\./, ''); } catch { /* keep url */ }
+    return `${pre}<a href="${url}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+  });
   s = s.replace(/\[\^(\d+)\^\]/g, '<sup>[$1]</sup>');
   return s;
 }

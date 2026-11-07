@@ -1,4 +1,4 @@
-﻿import { env as cfEnv } from "cloudflare:workers";
+import { env as cfEnv } from "cloudflare:workers";
 
 type RuntimeEnv = Record<string, unknown>;
 
@@ -12,6 +12,12 @@ export type AppEnv = {
   GOOGLE_CLOUD_LOCATION?: string;
   GOOGLE_SA_KEY_JSON?: string;
   GOOGLE_APPLICATION_CREDENTIALS?: string;
+  CRON_SECRET?: string;
+  GEMINI_MODEL?: string;
+  AUTO_REVIEW?: string;
+  AUTO_PUBLISH_DAILY_LIMIT?: string;
+  TELEGRAM_BOT_TOKEN?: string;
+  TELEGRAM_CHANNEL?: string;
 };
 
 export async function getRuntimeEnv(locals?: App.Locals): Promise<AppEnv> {
