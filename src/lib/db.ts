@@ -7,7 +7,54 @@ export async function getDb(locals: App.Locals): Promise<D1Database | undefined>
   return (await getRuntimeEnv(locals)).DB;
 }
 
-export async function listArticles(db: D1Database | undefined, language: Language, options: { category?: Category; status?: 'published' | 'needs_review' | 'draft'; limit?: number } = {}): Promise<Article[]> {
+type ListArticlesOptions = { category?: Category; status?: 'published' | 'needs_review' | 'draft'; limit?: number };
+
+// Published article lists are identical for every visitor, so share them across requests:
+// an in-isolate memo plus the colo-wide Cache API, both for LIST_CACHE_TTL seconds.
+// This keeps each article page from re-scanning articles/content_groups/sources (~1.8k D1 rows per list).
+const LIST_CACHE_TTL = 600;
+const listMemo = new Map<string, { expires: number; value: Article[] }>();
+
+export async function listArticles(db: D1Database | undefined, language: Language, options: ListArticlesOptions = {}): Promise<Article[]> {
+  const status = options.status ?? 'published';
+  if (!db || status !== 'published') return listArticlesUncached(db, language, options);
+
+  const key = `${language}|${options.category ?? '*'}|${options.limit ?? 20}`;
+  const now = Date.now();
+  const memo = listMemo.get(key);
+  if (memo && memo.expires > now) return memo.value;
+
+  const cache: Cache | undefined = (globalThis as { caches?: { default?: Cache } }).caches?.default;
+  const cacheUrl = `https://acp-list-cache.internal/v1/${encodeURIComponent(key)}`;
+  if (cache) {
+    try {
+      const hit = await cache.match(cacheUrl);
+      if (hit) {
+        const value = (await hit.json()) as Article[];
+        listMemo.set(key, { expires: now + 60_000, value });
+        return value;
+      }
+    } catch {
+      // fall through to D1
+    }
+  }
+
+  const value = await listArticlesUncached(db, language, options);
+  listMemo.set(key, { expires: now + LIST_CACHE_TTL * 1000, value });
+  if (cache) {
+    try {
+      await cache.put(
+        cacheUrl,
+        new Response(JSON.stringify(value), { headers: { 'Content-Type': 'application/json', 'Cache-Control': `public, max-age=${LIST_CACHE_TTL}` } }),
+      );
+    } catch {
+      // cache is best-effort
+    }
+  }
+  return value;
+}
+
+async function listArticlesUncached(db: D1Database | undefined, language: Language, options: ListArticlesOptions = {}): Promise<Article[]> {
   const status = options.status ?? 'published';
   if (!db) {
     return sampleArticles
