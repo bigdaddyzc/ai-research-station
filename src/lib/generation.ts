@@ -617,8 +617,9 @@ Return compact JSON only with this shape:
   "cautions": ["2-4 caveats or uncertainty notes"]
 }
 
-Topic selection (SEARCH DEMAND FIRST):
-- Pick the candidate that the most ordinary people will actually SEARCH for in the next 2 weeks, not the most technically interesting one. Strong signals: a well-known product or company name people type into search (ChatGPT, Claude, Gemini, DeepSeek, Kimi, Qwen, Doubao, Cursor, Copilot, Midjourney, Sora, NVIDIA, Apple, etc.), a new release/price change/free tier/outage of such a product, or a practical question ("how to use", "is it free", "X vs Y", "available in China", "how much does it cost").
+Topic selection (SEARCH DEMAND FIRST, AI ONLY):
+- The topic MUST be about AI (models, AI products/tools, AI research, AI resources, prompts). A famous company is only a plus when the story is about its AI product or AI business; never pick a non-AI story just because it is popular.
+- Pick the candidate that the most ordinary people will actually SEARCH for in the next 2 weeks, not the most technically interesting one. Strong signals: a well-known product or company name people type into search (ChatGPT, Claude, Gemini, DeepSeek, Kimi, Qwen, Doubao, Cursor, Copilot, Midjourney, Sora, Apple Intelligence, NVIDIA AI chips, etc.), a new release/price change/free tier/outage of such a product, or a practical question ("how to use", "is it free", "X vs Y", "available in China", "how much does it cost").
 - Avoid niche repos, minor library versions, obscure papers, and one-person blog experiments unless they are already trending widely.
 - heatScore means expected search interest: 90+ only for topics many people will search (major product launch, price change, free offer, outage); 50-70 for developer-only interest; below 50 for niche.
 - primaryKeyword must be a short phrase real users would search (e.g. "Gemini 4 价格" / "Gemini 4 pricing"), containing the product or brand name.
