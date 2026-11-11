@@ -121,6 +121,11 @@ export const GET: APIRoute = async ({ locals, url, request }) => {
         } catch (tgError) {
           (result as unknown as Record<string, unknown>).telegram = { error: tgError instanceof Error ? tgError.message : String(tgError) };
         }
+        try {
+          (result as unknown as Record<string, unknown>).indexnow = await submitIndexNow(await urlsForGroups(runtimeEnv, publishedIds));
+        } catch (inError) {
+          (result as unknown as Record<string, unknown>).indexnow = { error: inError instanceof Error ? inError.message : String(inError) };
+        }
       } catch (reviewError) {
         result.autoReview = { error: reviewError instanceof Error ? reviewError.message : String(reviewError) };
       }

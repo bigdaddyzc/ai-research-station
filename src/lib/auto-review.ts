@@ -100,7 +100,8 @@ async function loadCandidates(db: D1Database): Promise<Candidate[]> {
       score: 0,
       primaryUrl: String(row.primary_url ?? ''),
     };
-    c.score = Math.round(0.45 * c.sourceQuality + 0.3 * c.heat + 0.15 * c.avgReliability + 10 * c.verifiedShare);
+    // heat = expected search interest (see generation prompt); weighted up 2026-11-11 for search traffic.
+    c.score = Math.round(0.35 * c.sourceQuality + 0.4 * c.heat + 0.15 * c.avgReliability + 10 * c.verifiedShare);
 
     if (hoursSince(c.createdAt) > MAX_AGE_HOURS) c.gateFailure = `stale draft (older than ${MAX_AGE_HOURS}h)`;
     else if (c.zhLength < MIN_ZH_BODY_CHARS) c.gateFailure = 'missing or too-short Chinese article';

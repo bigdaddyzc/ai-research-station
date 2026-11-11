@@ -66,6 +66,7 @@ type GeneratedDraft = {
 };
 
 type FactPack = {
+  primaryKeyword?: { zh?: string; en?: string };
   canonicalSlug?: string;
   topic?: string;
   heatScore?: number;
@@ -608,12 +609,19 @@ Return compact JSON only with this shape:
   "topic": "specific topic",
   "heatScore": 0-100,
   "sourceQualityScore": 0-100,
+  "primaryKeyword": { "zh": "the Chinese phrase a reader would type into Baidu/Google", "en": "the English search phrase" },
   "sources": [
     { "url": "https://...", "title": "source title", "publisher": "publisher", "publishedAt": "YYYY-MM-DD", "reliabilityScore": 0-100 }
   ],
   "keyFacts": ["6-10 concise source-backed facts"],
   "cautions": ["2-4 caveats or uncertainty notes"]
 }
+
+Topic selection (SEARCH DEMAND FIRST):
+- Pick the candidate that the most ordinary people will actually SEARCH for in the next 2 weeks, not the most technically interesting one. Strong signals: a well-known product or company name people type into search (ChatGPT, Claude, Gemini, DeepSeek, Kimi, Qwen, Doubao, Cursor, Copilot, Midjourney, Sora, NVIDIA, Apple, etc.), a new release/price change/free tier/outage of such a product, or a practical question ("how to use", "is it free", "X vs Y", "available in China", "how much does it cost").
+- Avoid niche repos, minor library versions, obscure papers, and one-person blog experiments unless they are already trending widely.
+- heatScore means expected search interest: 90+ only for topics many people will search (major product launch, price change, free offer, outage); 50-70 for developer-only interest; below 50 for niche.
+- primaryKeyword must be a short phrase real users would search (e.g. "Gemini 4 价格" / "Gemini 4 pricing"), containing the product or brand name.
 
 Rules:
 - Use at least 2 credible, currently accessible source URLs published on or after ${oldestAllowedDate}; this category prefers sources from within ${freshnessWindow.label}.
@@ -711,6 +719,10 @@ Rules:
 - Where natural, phrase section headings as the question a reader would search (e.g. "### 它是什么？", "### How do I use it?").
 - summary must be a self-contained 1-2 sentence answer, not a teaser.
 - seoTitle should contain the main keyword people would search, not a clever headline.
+- SEARCH-FIRST TITLES: use the fact pack primaryKeyword (zh for Chinese, en for English). The title AND seoTitle MUST contain it, preferably at the start (e.g. "Gemini 4 价格是多少？..." / "Gemini 4 Pricing: ..."). Chinese title at most 30 characters; English title at most 65 characters. Add one concrete number or comparison when the facts have one. No clickbait, no vague words like "重磅" / "震撼".
+- The first paragraph and seoDescription MUST both contain the primary keyword once, naturally.
+- slug: 3-6 lowercase English keyword words that match the search phrase (e.g. "gemini-4-pricing-free-tier"), no dates, no filler words.
+- End each article (just before Sources/参考来源) with a "### 常见问题" / "### FAQ" section of exactly 3 short Q&As phrased as real searches (bold question line, 1-2 sentence answer), answered only from the fact pack.
 - Return only the JSON object. No markdown fences.
 
 Markdown formatting rules for contentMarkdown:
