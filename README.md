@@ -1,9 +1,24 @@
-# ACP AI Research 开发说明
+# AI Research Station
+
+A bilingual publishing site for AI research content, built with **Astro, TypeScript, and Cloudflare D1**. It brings channel pages, article pages, and an admin review-to-publish workflow into one application.
+
+**For developers building a curated research site**, rather than a general-purpose chatbot. The repository includes development and mock-generation paths; generated or demo content should not be treated as verified research. Check the implementation notes below before assuming a feature is production-ready.
+
+[Local Development](#本地开发) · [Database Setup](#cloudflare-d1) · [Environment Variables](#环境变量) · [Implementation Notes](#当前实现范围)
+
+To try it locally, clone the repository, install the locked dependencies, and configure `.env` from `.env.example` before starting the development server. Database creation, migrations, and production secrets are documented below.
+
+## 中文说明
+
+这是一个面向 AI 研究内容的中英文发布站点，包含频道、文章页和后台审核发布流程。适合想搭建人工审核型内容站点的开发者；原有开发说明与实现范围保留如下。
 
 ## 本地开发
 
 ```bash
-npm install
+git clone https://github.com/bigdaddyzc/ai-research-station.git
+cd ai-research-station
+npm ci
+# Copy .env.example to .env and configure it as described below.
 npm run dev
 ```
 
