@@ -47,7 +47,9 @@ export const onRequest = defineMiddleware(async (context, next) => {
     const stored = new Response(toStore.body, toStore);
     stored.headers.set('Cache-Control', `public, max-age=${EDGE_TTL_SECONDS}`);
     const put = cache!.put(cacheKey, stored);
-    const ctx = (context.locals as { runtime?: { ctx?: { waitUntil?: (p: Promise<unknown>) => void } } }).runtime?.ctx;
+    // Astro v6+ removed locals.runtime.ctx (reading it throws, which turned every cache miss into a 500/redirect).
+    let ctx: { waitUntil?: (p: Promise<unknown>) => void } | undefined;
+    try { ctx = (context.locals as { cfContext?: { waitUntil?: (p: Promise<unknown>) => void } }).cfContext; } catch { ctx = undefined; }
     if (ctx?.waitUntil) ctx.waitUntil(put);
     else await put;
     response.headers.set('X-Edge-Cache', 'MISS');
