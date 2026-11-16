@@ -1,7 +1,20 @@
 // cache-bust: 20260704210321
 import { getRuntimeEnv } from './env';
-import { sampleArticles, sampleGroups, samplePersonalResources, sampleSources } from './sample-data';
 import type { AdminDraftGroup, Article, ArticleClaim, ArticleEntity, ArticleFaq, ArticleUpdate, Category, ContentGroup, FeedbackStatus, FeedbackSubmission, Language, PersonalResource, ResearchArtifacts, Source } from './types';
+
+// Thrown when the D1 binding is missing. The middleware converts this into a
+// 503 error page: a database outage must never be hidden by serving the
+// built-in sample articles as if they were real content.
+export class DbUnavailableError extends Error {
+  constructor() {
+    super('D1 database is unavailable');
+    this.name = 'DbUnavailableError';
+  }
+}
+
+function requireDb(db: D1Database | undefined): asserts db is D1Database {
+  if (!db) throw new DbUnavailableError();
+}
 
 export async function getDb(locals: App.Locals): Promise<D1Database | undefined> {
   return (await getRuntimeEnv(locals)).DB;
@@ -9,15 +22,7 @@ export async function getDb(locals: App.Locals): Promise<D1Database | undefined>
 
 export async function listArticles(db: D1Database | undefined, language: Language, options: { category?: Category; status?: 'published' | 'needs_review' | 'draft'; limit?: number } = {}): Promise<Article[]> {
   const status = options.status ?? 'published';
-  if (!db) {
-    return sampleArticles
-      .filter((article) => article.language === language)
-      .filter((article) => !options.category || article.category === options.category)
-      .filter((article) => article.status === status)
-      .filter((article) => status !== 'published' || isSampleArticleFresh(article))
-      .sort(compareArticlesByDateDesc)
-      .slice(0, options.limit ?? 20);
-  }
+  requireDb(db);
 
   const filters = ['a.language = ?'];
   const params: unknown[] = [language];
@@ -52,9 +57,7 @@ export async function listArticles(db: D1Database | undefined, language: Languag
 }
 
 export async function getArticleBySlug(db: D1Database | undefined, language: Language, slug: string): Promise<Article | null> {
-  if (!db) {
-    return sampleArticles.find((article) => article.language === language && article.slug === slug && article.status === 'published') ?? null;
-  }
+  requireDb(db);
 
   const row = await db
     .prepare(
@@ -71,9 +74,7 @@ export async function getArticleBySlug(db: D1Database | undefined, language: Lan
 }
 
 export async function getSourcesForGroup(db: D1Database | undefined, contentGroupId: string): Promise<Source[]> {
-  if (!db) {
-    return sampleSources.filter((source) => source.contentGroupId === contentGroupId);
-  }
+  requireDb(db);
 
   const result = await db
     .prepare('SELECT * FROM sources WHERE content_group_id = ? ORDER BY reliability_score DESC')
@@ -85,7 +86,7 @@ export async function getSourcesForGroup(db: D1Database | undefined, contentGrou
 
 export async function getResearchArtifactsForArticle(db: D1Database | undefined, articleId: string): Promise<ResearchArtifacts> {
   const empty: ResearchArtifacts = { claims: [], faqs: [], entities: [], updates: [] };
-  if (!db) return empty;
+  requireDb(db);
 
   try {
     const [claims, faqs, entities, updates] = await Promise.all([
@@ -107,9 +108,7 @@ export async function getResearchArtifactsForArticle(db: D1Database | undefined,
 }
 
 export async function listPersonalResources(db: D1Database | undefined, language: Language): Promise<PersonalResource[]> {
-  if (!db) {
-    return samplePersonalResources.filter((resource) => resource.language === language).sort((a, b) => a.sortOrder - b.sortOrder);
-  }
+  requireDb(db);
 
   const result = await db
     .prepare('SELECT * FROM personal_resources WHERE language = ? ORDER BY is_featured DESC, sort_order ASC')
@@ -120,13 +119,12 @@ export async function listPersonalResources(db: D1Database | undefined, language
 }
 
 export async function listAdminDraftGroups(db: D1Database | undefined): Promise<AdminDraftGroup[]> {
-  const draftGroups = db ? await listDbDraftGroups(db) : sampleGroups.filter((group) => group.status === 'needs_review' || group.status === 'draft');
+  requireDb(db);
+  const draftGroups = await listDbDraftGroups(db);
   const adminGroups: AdminDraftGroup[] = [];
 
   for (const group of draftGroups) {
-    const articles = db
-      ? await listArticlesForGroup(db, group.id)
-      : sampleArticles.filter((article) => article.contentGroupId === group.id);
+    const articles = await listArticlesForGroup(db, group.id);
     const sources = await getSourcesForGroup(db, group.id);
     adminGroups.push({ group, articles, sources });
   }
@@ -136,7 +134,7 @@ export async function listAdminDraftGroups(db: D1Database | undefined): Promise<
 
 export async function publishContentGroup(db: D1Database | undefined, groupId: string): Promise<{ ok: boolean; message: string }> {
   if (!db) {
-    return { ok: true, message: 'Sample mode: publish action accepted. Configure D1 to persist changes.' };
+    return { ok: false, message: 'Database is unavailable. Please try again later.' };
   }
 
   const validation = await validateContentGroupForPublish(db, groupId);
@@ -159,7 +157,7 @@ export async function publishContentGroup(db: D1Database | undefined, groupId: s
 
 export async function unpublishContentGroup(db: D1Database | undefined, groupId: string): Promise<{ ok: boolean; message: string }> {
   if (!db) {
-    return { ok: true, message: 'Sample mode: unpublish action accepted. Configure D1 to persist changes.' };
+    return { ok: false, message: 'Database is unavailable. Please try again later.' };
   }
 
   const group = await db.prepare("SELECT id, status FROM content_groups WHERE id = ?").bind(groupId).first<Record<string, unknown>>();
@@ -184,15 +182,13 @@ export async function unpublishContentGroup(db: D1Database | undefined, groupId:
 }
 
 export async function listAdminPublishedGroups(db: D1Database | undefined): Promise<AdminDraftGroup[]> {
-  const publishedGroups = db
-    ? (await db.prepare("SELECT * FROM content_groups WHERE status = 'published' ORDER BY published_at DESC LIMIT 50").all<Record<string, unknown>>()).results?.map(mapContentGroup) ?? []
-    : sampleGroups.filter((group) => group.status === 'published');
+  requireDb(db);
+  const publishedGroups =
+    (await db.prepare("SELECT * FROM content_groups WHERE status = 'published' ORDER BY published_at DESC LIMIT 50").all<Record<string, unknown>>()).results?.map(mapContentGroup) ?? [];
   const adminGroups: AdminDraftGroup[] = [];
 
   for (const group of publishedGroups) {
-    const articles = db
-      ? await listArticlesForGroup(db, group.id)
-      : sampleArticles.filter((article) => article.contentGroupId === group.id);
+    const articles = await listArticlesForGroup(db, group.id);
     const sources = await getSourcesForGroup(db, group.id);
     adminGroups.push({ group, articles, sources });
   }
@@ -397,41 +393,6 @@ function safeJsonArray(value: unknown): string[] {
   }
 }
 
-function isSampleArticleFresh(article: Article): boolean {
-  const publishedAt = article.publishedAt ? new Date(article.publishedAt) : null;
-  if (!publishedAt || Number.isNaN(publishedAt.getTime()) || publishedAt < getOldestAllowedDate(article.category)) {
-    return false;
-  }
-
-  const sources = sampleSources.filter((source) => source.contentGroupId === article.contentGroupId);
-  return sources.length >= 2 && sources.every((source) => {
-    if (!source.publishedAt) return false;
-    const sourceDate = new Date(source.publishedAt);
-    return !Number.isNaN(sourceDate.getTime()) && sourceDate >= getOldestAllowedDate(article.category);
-  });
-}
-
-function compareArticlesByDateDesc(a: Article, b: Article): number {
-  const aTime = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
-  const bTime = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
-  return bTime - aTime || b.heatScore - a.heatScore;
-}
-
-function getOldestAllowedDate(category: Category): Date {
-  const date = new Date();
-  if (category === 'news') {
-    date.setUTCDate(date.getUTCDate() - 7);
-  } else if (category === 'resources') {
-    date.setUTCMonth(date.getUTCMonth() - 4);
-  } else if (category === 'prompts') {
-    date.setUTCMonth(date.getUTCMonth() - 3);
-  } else {
-    date.setUTCMonth(date.getUTCMonth() - 6);
-  }
-  date.setUTCHours(0, 0, 0, 0);
-  return date;
-}
-
 function getFreshnessLabel(category: Category | undefined): string {
   if (category === 'news') return 'one week';
   if (category === 'resources') return 'four months';
@@ -440,9 +401,7 @@ function getFreshnessLabel(category: Category | undefined): string {
 }
 
 export async function listAllPersonalResources(db: D1Database | undefined): Promise<PersonalResource[]> {
-  if (!db) {
-    return samplePersonalResources.sort((a, b) => a.language.localeCompare(b.language) || a.sortOrder - b.sortOrder);
-  }
+  requireDb(db);
   const result = await db
     .prepare('SELECT * FROM personal_resources ORDER BY language, sort_order ASC')
     .all<Record<string, unknown>>();
@@ -454,7 +413,7 @@ export async function upsertPersonalResource(
   resource: { id?: string; language: string; title: string; description: string; url: string; resourceType: string; isFeatured: boolean; sortOrder: number },
 ): Promise<{ ok: boolean; message: string }> {
   if (!db) {
-    return { ok: true, message: 'Sample mode: save action accepted. Configure D1 to persist changes.' };
+    return { ok: false, message: 'Database is unavailable. Please try again later.' };
   }
   const id = resource.id || `pr-${crypto.randomUUID().slice(0, 8)}`;
   await db
@@ -470,7 +429,7 @@ export async function upsertPersonalResource(
 
 export async function deletePersonalResource(db: D1Database | undefined, id: string): Promise<{ ok: boolean; message: string }> {
   if (!db) {
-    return { ok: true, message: 'Sample mode: delete action accepted. Configure D1 to persist changes.' };
+    return { ok: false, message: 'Database is unavailable. Please try again later.' };
   }
   await db.prepare('DELETE FROM personal_resources WHERE id = ?').bind(id).run();
   return { ok: true, message: 'Deleted.' };
@@ -478,7 +437,7 @@ export async function deletePersonalResource(db: D1Database | undefined, id: str
 
 export async function rejectContentGroup(db: D1Database | undefined, groupId: string): Promise<{ ok: boolean; message: string }> {
   if (!db) {
-    return { ok: true, message: 'Sample mode: reject action accepted. Configure D1 to persist changes.' };
+    return { ok: false, message: 'Database is unavailable. Please try again later.' };
   }
 
   const group = await db.prepare("SELECT id, status FROM content_groups WHERE id = ?").bind(groupId).first<Record<string, unknown>>();
@@ -513,7 +472,7 @@ export async function createFeedbackSubmission(
     return { ok: false, message: 'Email address is invalid.' };
   }
   if (!db) {
-    return { ok: true, message: 'Sample mode: feedback accepted. Configure D1 to persist submissions.' };
+    return { ok: false, message: 'Database is unavailable. Please try again later.' };
   }
 
   const id = `fb-${crypto.randomUUID().slice(0, 12)}`;
@@ -534,7 +493,7 @@ export async function createFeedbackSubmission(
 }
 
 export async function listFeedbackSubmissions(db: D1Database | undefined): Promise<FeedbackSubmission[]> {
-  if (!db) return [];
+  requireDb(db);
 
   const result = await db
     .prepare("SELECT * FROM feedback_submissions ORDER BY CASE status WHEN 'new' THEN 0 WHEN 'reviewing' THEN 1 WHEN 'responded' THEN 2 ELSE 3 END, created_at DESC LIMIT 100")
@@ -551,7 +510,7 @@ export async function respondToFeedbackSubmission(
     return { ok: false, message: 'Invalid feedback status.' };
   }
   if (!db) {
-    return { ok: true, message: 'Sample mode: response action accepted. Configure D1 to persist changes.' };
+    return { ok: false, message: 'Database is unavailable. Please try again later.' };
   }
 
   const existing = await db.prepare('SELECT id FROM feedback_submissions WHERE id = ?').bind(feedback.id).first<Record<string, unknown>>();
