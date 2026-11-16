@@ -12,7 +12,7 @@ const slug = Astro.params.slug ?? '';
 const validCategories: Category[] = ['tools', 'news', 'resources', 'research', 'prompts', 'personal'];
 
 if ((lang !== 'zh' && lang !== 'en') || !validCategories.includes(category)) {
-  return Astro.redirect('/zh');
+  return new Response('Not Found', { status: 404 });
 }
 
 const db = await getDb(Astro.locals);
@@ -70,7 +70,7 @@ const breadcrumbJsonLd = {
   ],
 };
 ---
-<BaseLayout title={`${pageTitle} · ACP AI Research`} description={pageDescription} lang={lang}>
+<BaseLayout title={`${pageTitle} · ACP AI Research`} description={pageDescription} lang={lang} ogType="article">
   <script type="application/ld+json" set:html={JSON.stringify(articleJsonLd)} is:inline />
   {faqJsonLd && <script type="application/ld+json" set:html={JSON.stringify(faqJsonLd)} is:inline />}
   <script type="application/ld+json" set:html={JSON.stringify(breadcrumbJsonLd)} is:inline />

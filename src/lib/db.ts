@@ -56,6 +56,40 @@ export async function listArticles(db: D1Database | undefined, language: Languag
   return (result.results ?? []).map(mapArticle);
 }
 
+export interface SitemapEntry {
+  language: Language;
+  category: Category;
+  slug: string;
+  publishedAt: string | null;
+}
+
+/**
+ * Every published article for the sitemap, both languages. Unlike
+ * listArticles (which applies freshness windows for display), the sitemap
+ * must list all published pages so crawlers can discover them.
+ */
+export async function listSitemapArticles(db: D1Database | undefined): Promise<SitemapEntry[]> {
+  requireDb(db);
+
+  const result = await db
+    .prepare(
+      `SELECT a.language, a.slug, g.category, g.published_at
+       FROM articles a
+       JOIN content_groups g ON g.id = a.content_group_id
+       WHERE g.status = 'published'
+       ORDER BY COALESCE(g.published_at, g.created_at) DESC
+       LIMIT 5000`,
+    )
+    .all<Record<string, unknown>>();
+
+  return (result.results ?? []).map((row) => ({
+    language: row.language as Language,
+    category: row.category as Category,
+    slug: String(row.slug ?? ''),
+    publishedAt: row.published_at ? String(row.published_at) : null,
+  }));
+}
+
 export async function getArticleBySlug(db: D1Database | undefined, language: Language, slug: string): Promise<Article | null> {
   requireDb(db);
 

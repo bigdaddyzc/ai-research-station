@@ -6,13 +6,21 @@ interface Props {
   title?: string;
   description?: string;
   lang?: UiLanguage;
+  ogType?: string;
 }
 
-const { title = 'ACP AI Research', description = 'Bilingual AI research and intelligence website.', lang = 'zh' } = Astro.props;
+const { title = 'ACP AI Research Station — Daily AI News, Tools & Research', description = 'Daily AI news, tools, research and resources in English and Chinese, with verifiable sources.', lang = 'zh', ogType = 'website' } = Astro.props;
 const t = ui[lang];
 const otherLang = lang === 'zh' ? 'en' : 'zh';
 const currentPath = Astro.url.pathname;
 const otherPath = currentPath.startsWith('/zh') ? currentPath.replace('/zh', '/en') : currentPath.startsWith('/en') ? currentPath.replace('/en', '/zh') : `/${otherLang}`;
+const siteUrl = 'https://acp.dpdns.org';
+const canonical = siteUrl + currentPath;
+const isContentPage = currentPath.startsWith('/zh') || currentPath.startsWith('/en');
+const zhUrl = lang === 'zh' ? canonical : siteUrl + otherPath;
+const enUrl = lang === 'en' ? canonical : siteUrl + otherPath;
+const ogLocale = lang === 'zh' ? 'zh_CN' : 'en_US';
+const ogLocaleAlternate = lang === 'zh' ? 'en_US' : 'zh_CN';
 ---
 <!doctype html>
 <html lang={lang === 'zh' ? 'zh-CN' : 'en'}>
@@ -21,6 +29,26 @@ const otherPath = currentPath.startsWith('/zh') ? currentPath.replace('/zh', '/e
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="canonical" href={canonical} />
+    {isContentPage && (
+      <>
+        <link rel="alternate" hreflang="zh" href={zhUrl} />
+        <link rel="alternate" hreflang="en" href={enUrl} />
+        <link rel="alternate" hreflang="x-default" href={zhUrl} />
+      </>
+    )}
+    <meta property="og:type" content={ogType} />
+    <meta property="og:site_name" content="ACP AI Research Station" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:locale" content={ogLocale} />
+    <meta property="og:locale:alternate" content={ogLocaleAlternate} />
+    <meta property="og:image" content={siteUrl + '/og.png'} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={siteUrl + '/og.png'} />
     <title>{title}</title>
   </head>
   <body>

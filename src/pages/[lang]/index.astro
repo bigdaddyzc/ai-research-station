@@ -7,7 +7,7 @@ import { ui, categoryLabels, type UiLanguage } from '../../lib/i18n';
 
 const lang = Astro.params.lang as UiLanguage;
 if (lang !== 'zh' && lang !== 'en') {
-  return Astro.redirect('/zh');
+  return new Response('Not Found', { status: 404 });
 }
 
 const t = ui[lang];
@@ -26,7 +26,10 @@ const todayText = lang === 'zh'
   ? `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`
   : now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 ---
-<BaseLayout title="ACP AI Research" description="Bilingual AI research and intelligence website." lang={lang}>
+<BaseLayout
+  title={lang === 'zh' ? 'ACP AI 研究站 · 每日 AI 新闻、工具与研究' : 'ACP AI Research Station — Daily AI News, Tools & Research'}
+  description={lang === 'zh' ? '每日 AI 新闻、工具、研究与资源，中英双语，来源可查。' : 'Daily AI news, tools, research and resources in English and Chinese, with verifiable sources.'}
+  lang={lang}>
   <main>
     <section class="hero" id="today">
       <div class="shell">
