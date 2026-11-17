@@ -1,6 +1,19 @@
 import type { APIRoute } from 'astro';
 import { getDb } from '../lib/db';
 const siteUrl = 'https://acp.dpdns.org';
+const categories = ['tools', 'news', 'resources', 'research', 'prompts', 'personal'];
+
+function alt(hreflang: string, href: string): string {
+  return `<xhtml:link rel="alternate" hreflang="${hreflang}" href="${href}" />`;
+}
+
+function urlEntry(loc: string, lastmod: string, alts: string[]): string {
+  let entry = '  <url>\n    <loc>' + loc + '</loc>\n';
+  if (lastmod) entry += '    <lastmod>' + lastmod + '</lastmod>\n';
+  if (alts.length > 0) entry += '    ' + alts.join('\n    ') + '\n';
+  entry += '  </url>';
+  return entry;
+}
 
 // Every published article in both languages (not only the "fresh" ones on the
 // homepage), with hreflang pairs, so search engines can index the whole archive.

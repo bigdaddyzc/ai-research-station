@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev --host 127.0.0.1",
-    "build": "astro check && astro build",
+    "build": "python3 scripts/generate-og.py && astro check && astro build",
     "preview": "wrangler dev --config wrangler.preview.toml --port 8788",
     "preview:build": "npm run build && npm run preview",
     "pages:prepare": "node scripts/prepare-pages-deploy.mjs",

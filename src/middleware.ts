@@ -1,25 +1,57 @@
 import { defineMiddleware } from 'astro:middleware';
+import { DbUnavailableError } from './lib/db';
 
 // Public pages are cached at the edge so crawler bursts don't re-run D1 list queries
 // (each uncached article view scanned ~2,700 D1 rows; free tier is 5M rows/day).
 const EDGE_TTL_SECONDS = 600;
+const CONTENT_CACHE_CONTROL = 'public, max-age=300, s-maxage=1800';
+
+// /v1/* paths are internal list-cache paths (acp-list-cache.internal/v1/<key>)
+// that must never be served from the public host. Return 404.
+function isInternalApiPath(pathname: string): boolean {
+  return pathname === '/v1' || pathname.startsWith('/v1/');
+}
+
+function isContentPath(pathname: string): boolean {
+  return pathname === '/zh' || pathname.startsWith('/zh/') || pathname === '/en' || pathname.startsWith('/en/');
+}
+
+function isAdminOrApiPath(pathname: string): boolean {
+  return pathname === '/admin' || pathname.startsWith('/admin/') || pathname.startsWith('/api/');
+}
 
 function isCacheablePath(pathname: string): boolean {
-  if (pathname.startsWith('/api/') || pathname.startsWith('/admin')) return false;
-  return true;
+  return !isAdminOrApiPath(pathname);
+}
+
+function unavailable(): Response {
+  return new Response(
+    '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>暂时不可用 · ACP AI Research</title></head>' +
+      '<body><main><h1>服务暂时不可用</h1><p>数据库连接失败，请稍后再试。 / The database is temporarily unavailable. Please try again later.</p></main></body></html>',
+    {
+      status: 503,
+      headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Retry-After': '60' },
+    },
+  );
 }
 
 export const onRequest = defineMiddleware(async (context, next) => {
-  // One canonical host for search engines: send workers.dev page views to acp.dpdns.org.
   const url = context.url;
-  if (url.hostname.endsWith('.workers.dev') && !url.pathname.startsWith('/api/')) {
-    return Response.redirect(`https://acp.dpdns.org${url.pathname}${url.search}`, 301);
+  const pathname = url.pathname;
+
+  if (isInternalApiPath(pathname)) {
+    return new Response('Not Found', { status: 404 });
+  }
+
+  // One canonical host for search engines: send workers.dev page views to acp.dpdns.org.
+  if (url.hostname.endsWith('.workers.dev') && !pathname.startsWith('/api/')) {
+    return Response.redirect(`https://acp.dpdns.org${pathname}${url.search}`, 301);
   }
 
   const request = context.request;
   const cache: Cache | undefined = (globalThis as { caches?: { default?: Cache } }).caches?.default;
   const hasSession = (request.headers.get('cookie') ?? '').includes('admin');
-  const cacheable = Boolean(cache) && request.method === 'GET' && isCacheablePath(url.pathname) && !hasSession;
+  const cacheable = Boolean(cache) && request.method === 'GET' && isCacheablePath(pathname) && !hasSession;
 
   // Cache key ignores tracking params (utm_*), so ?utm_source=wechat shares the cached page.
   let cacheKey: Request | undefined;
@@ -35,12 +67,25 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
   }
 
-  const response = await next();
+  let response: Response;
+  try {
+    response = await next();
+  } catch (error) {
+    // A missing D1 binding is a service outage, not a reason to serve sample articles.
+    if (error instanceof DbUnavailableError) return unavailable();
+    throw error;
+  }
 
   // Fold landing page security headers (previously in cloudflare/pages/_headers)
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+  if (isAdminOrApiPath(pathname)) {
+    response.headers.set('Cache-Control', 'no-store');
+  } else if (response.status === 200 && isContentPath(pathname) && !response.headers.has('Cache-Control')) {
+    response.headers.set('Cache-Control', CONTENT_CACHE_CONTROL);
+  }
 
   if (cacheable && cacheKey && response.status === 200 && !response.headers.has('Set-Cookie')) {
     const toStore = response.clone();

@@ -11,4 +11,5 @@ dist-*/
 .DS_Store
 *.log
 *.bak
+public/og.png
 service-account-key.json
