@@ -21,8 +21,9 @@ const formatDate = (value: string | null) => {
 ---
 <article class="card">
   <div class="top">
-    <span class="tag">{categoryLabels[lang][article.category]}</span>
-    <span class="rating">{(article.sourceQualityScore / 10).toFixed(1)}</span>
+    <span class="tag teal">{categoryLabels[lang][article.category]}</span>
+    <span class="tag amber">Quality {article.sourceQualityScore}</span>
+    <span class="tag red">Heat {article.heatScore}</span>
     <time>{formatDate(article.publishedAt)}</time>
   </div>
   <h3><a href={href}>{article.title}</a></h3>

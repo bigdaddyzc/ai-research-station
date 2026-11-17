@@ -65,9 +65,9 @@ const sectionZh: Record<string, string> = {
         <h1>{lead?.title}</h1>
         <p class="hero-sub">{lead?.summary}</p>
         <div class="lead-meta hero-tags">
-          <span class="tag">{categoryLabels[lang][lead?.category as keyof typeof categoryLabels['zh']] ?? t.news}</span>
-          <span class="tag">Heat {lead?.heatScore ?? 0}</span>
-          <span class="tag">Quality {lead?.sourceQualityScore ?? 0}</span>
+          <span class="tag teal">{categoryLabels[lang][lead?.category as keyof typeof categoryLabels['zh']] ?? t.news}</span>
+          <span class="tag amber">Quality {lead?.sourceQualityScore ?? 0}</span>
+          <span class="tag red">Heat {lead?.heatScore ?? 0}</span>
           {lead?.tags.slice(0, 3).map((tag) => <span class="tag">{tag}</span>)}
         </div>
         <div class="hero-actions">
@@ -122,6 +122,7 @@ const sectionZh: Record<string, string> = {
                     <span class="dsc">{item.summary}</span>
                   </span>
                   <time>{formatDate(item.publishedAt)}</time>
+                  <span class="tag red">Heat {item.heatScore}</span>
                   <span class="arr">→</span>
                 </a>
               ))}
@@ -179,7 +180,8 @@ const sectionZh: Record<string, string> = {
                 <span class="ttl">{item.title}</span>
                 <span class="dsc">{item.summary}</span>
               </span>
-              <time>{formatDate(item.publishedAt)} · Heat {item.heatScore}</time>
+              <time>{formatDate(item.publishedAt)}</time>
+              <span class="tag red">Heat {item.heatScore}</span>
               <span class="arr">→</span>
             </a>
           ))}
