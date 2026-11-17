@@ -10,20 +10,25 @@ interface Props {
 const { article, lang } = Astro.props;
 const t = ui[lang];
 const href = `/${lang}/${article.category}/${article.slug}`;
-const statusText = article.status === 'published' ? t.published : article.status === 'needs_review' ? t.pendingReview : t.draft;
+const formatDate = (value: string | null) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return lang === 'zh'
+    ? date.toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai', month: 'numeric', day: 'numeric' })
+    : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
 ---
 <article class="card">
-  <div class="card-head">
-    <span class="tag teal">{categoryLabels[lang][article.category]}</span>
+  <div class="top">
+    <span class="tag">{categoryLabels[lang][article.category]}</span>
     <span class="rating">{(article.sourceQualityScore / 10).toFixed(1)}</span>
+    <time>{formatDate(article.publishedAt)}</time>
   </div>
   <h3><a href={href}>{article.title}</a></h3>
   <p>{article.summary}</p>
   <div class="lead-meta">
     {article.tags.slice(0, 3).map((tag) => <span class="tag">{tag}</span>)}
   </div>
-  <div class="card-foot">
-    <span>{article.tags.length > 0 ? article.tags[0] : ''}</span>
-    <span>{statusText}</span>
-  </div>
+  <a class="go" href={href}>{t.readMore} →</a>
 </article>

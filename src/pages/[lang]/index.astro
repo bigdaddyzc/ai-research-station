@@ -15,6 +15,7 @@ const db = await getDb(Astro.locals);
 const allArticles = await listArticles(db, lang, { limit: 24 });
 const tools = allArticles.filter((article) => article.category === 'tools').slice(0, 3);
 const news = allArticles.filter((article) => article.category === 'news').slice(0, 3);
+const feedNews = allArticles.filter((article) => article.category === 'news').slice(0, 7);
 const resources = allArticles.filter((article) => article.category === 'resources').slice(0, 3);
 const research = allArticles.filter((article) => article.category === 'research').slice(0, 3);
 const prompts = allArticles.filter((article) => article.category === 'prompts').slice(0, 3);
@@ -25,6 +26,31 @@ const feedbackSent = Astro.url.searchParams.get('feedback') === 'sent';
 const todayText = lang === 'zh'
   ? `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`
   : now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+const avgQuality = Math.round(allArticles.reduce((sum, item) => sum + item.sourceQualityScore, 0) / Math.max(allArticles.length, 1));
+const formatDate = (value: string | null) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return lang === 'zh'
+    ? date.toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai', month: 'numeric', day: 'numeric' })
+    : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+const sectionEn: Record<string, string> = {
+  tools: 'Tools',
+  news: 'News',
+  resources: 'Resources',
+  research: 'Research',
+  prompts: 'Prompts',
+  personal: 'Personal',
+};
+const sectionZh: Record<string, string> = {
+  tools: '工具',
+  news: '新闻',
+  resources: '资源',
+  research: '研究',
+  prompts: '提示词',
+  personal: '个人',
+};
 ---
 <BaseLayout
   title={lang === 'zh' ? 'ACP AI 研究站 · 每日 AI 新闻、工具与研究' : 'ACP AI Research Station — Daily AI News, Tools & Research'}
@@ -32,133 +58,185 @@ const todayText = lang === 'zh'
   lang={lang}>
   <main>
     <section class="hero" id="today">
+      <div class="hero-glow" aria-hidden="true"></div>
+      <div class="hero-grid-bg" aria-hidden="true"></div>
       <div class="shell">
-        <div class="kicker"><span class="live-dot"></span><span>{todayText} · {t.reviewed} · {t.bilingual}</span></div>
-        <div class="hero-grid">
-          <article class="lead-panel">
-            <div class="lead-copy">
-              <div class="lead-meta">
-                <span class="tag teal">{categoryLabels[lang][lead?.category as keyof typeof categoryLabels['zh']] ?? t.news}</span>
-                <span class="tag amber">{lead?.sourceQualityScore ?? 0} quality</span>
-                <span class="tag red">Heat {lead?.heatScore ?? 0}</span>
-              </div>
-              <h1>{lead?.title}</h1>
-              <p>{lead?.summary}</p>
-              <div class="lead-meta">
-                {lead?.tags.slice(0, 3).map((tag) => <span class="tag">{tag}</span>)}
-              </div>
-              {lead && <a class="pill-btn primary" href={`/${lang}/${lead.category}/${lead.slug}`}>{t.readMore}</a>}
-            </div>
-            <aside class="score-board" aria-label="Today metrics">
-              <div class="metric"><strong>{allArticles.length}</strong><span>{lang === 'zh' ? '今日候选信号' : 'signals tracked'}</span></div>
-              <div class="metric"><strong>{allArticles.length}</strong><span>{lang === 'zh' ? '已发布文章' : 'published'}</span></div>
-              <div class="metric"><strong>{Math.round(allArticles.reduce((sum, item) => sum + item.sourceQualityScore, 0) / Math.max(allArticles.length, 1))}</strong><span>{lang === 'zh' ? '平均可信度' : 'avg. quality'}</span></div>
-            </aside>
-          </article>
-
-          <aside class="brief-panel">
-            <div class="panel-title">
-              <h2>{t.news}</h2>
-              <span>AI News</span>
-            </div>
-            {news.map((item) => (
-              <div class="brief-item">
-                <h3><a href={`/${lang}/${item.category}/${item.slug}`}>{item.title}</a></h3>
-                <p>{item.summary}</p>
-              </div>
-            ))}
-            <a class="pill-btn" href={`/${lang}/news`}>{t.newsArchive}</a>
-          </aside>
+        <span class="chip"><span class="dot"></span><b>{todayText}</b> · {t.reviewed} · {t.bilingual}</span>
+        <h1>{lead?.title}</h1>
+        <p class="hero-sub">{lead?.summary}</p>
+        <div class="lead-meta hero-tags">
+          <span class="tag">{categoryLabels[lang][lead?.category as keyof typeof categoryLabels['zh']] ?? t.news}</span>
+          <span class="tag">Heat {lead?.heatScore ?? 0}</span>
+          <span class="tag">Quality {lead?.sourceQualityScore ?? 0}</span>
+          {lead?.tags.slice(0, 3).map((tag) => <span class="tag">{tag}</span>)}
         </div>
-
-        <div class="toolbar" id="search">
-          <div class="searchbox">
-            <span class="search-icon">⌕</span>
-            <input type="text" class="search-input" placeholder={t.search} id="searchInput" />
-          </div>
-          <div class="segmented" aria-label="Language switch">
-            <a class={lang === 'zh' ? 'active' : ''} href="/zh">中文</a>
-            <a class={lang === 'en' ? 'active' : ''} href="/en">English</a>
-          </div>
+        <div class="hero-actions">
+          {lead && <a class="pill-btn primary btn-lg" href={`/${lang}/${lead.category}/${lead.slug}`}>{t.readMore}</a>}
+          <a class="pill-btn btn-lg" href="#latest">{lang === 'zh' ? '浏览最新文章' : 'Browse latest articles'} ↓</a>
+        </div>
+        <div class="hero-meta">
+          {lang === 'zh' ? (
+            <>
+              <span>最新 {allArticles.length} 篇</span><span>6 个栏目</span><span>EN / 中文双语</span><span>每日更新</span><span>平均可信度 {avgQuality}</span>
+            </>
+          ) : (
+            <>
+              <span>Latest {allArticles.length} articles</span><span>6 sections</span><span>EN / 中文</span><span>Updated daily</span><span>Avg. quality {avgQuality}</span>
+            </>
+          )}
         </div>
       </div>
     </section>
 
-    <section class="shell sections">
-      <section class="section-panel" id="tools">
-        <div class="section-title">
-          <div>
-            <h2>{t.tools}</h2>
-            <span>{lang === 'zh' ? '从适用人群、价格、可靠性和替代品角度评估近期活跃项目' : 'Evaluate active AI projects by fit, pricing, reliability, and alternatives.'}</span>
-          </div>
-          <a class="pill-btn" href={`/${lang}/tools`}>{t.moreReviews}</a>
+    <section class="shell window-zone" id="latest">
+      <div class="window-glow" aria-hidden="true"></div>
+      <div class="window">
+        <div class="win-bar">
+          <span class="win-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="win-url">acp.dpdns.org</span>
+          <span class="live"><i></i>LIVE</span>
         </div>
-        <div class="cards-3">{tools.map((article) => <ArticleCard article={article} lang={lang} />)}</div>
+        <div class="win-body">
+          <aside class="win-side" aria-label="Sections">
+            <div class="side-label">ACP / SECTIONS</div>
+            <a href="#latest" class="on">{lang === 'zh' ? '最新动态' : 'Latest'}</a>
+            <a href="#news">{sectionEn.news}{lang === 'zh' ? ' 新闻' : ''}</a>
+            <a href="#tools">{sectionEn.tools}{lang === 'zh' ? ' 工具' : ''}</a>
+            <a href="#research">{sectionEn.research}{lang === 'zh' ? ' 研究' : ''}</a>
+            <a href="#resources">{sectionEn.resources}{lang === 'zh' ? ' 资源' : ''}</a>
+            <a href="#prompts">{sectionEn.prompts}{lang === 'zh' ? ' 提示词' : ''}</a>
+            <a href="#personal">{sectionEn.personal}{lang === 'zh' ? ' 个人' : ''}</a>
+            <a href="/rss.xml">RSS {lang === 'zh' ? '订阅' : 'Feed'}</a>
+          </aside>
+          <div class="win-main">
+            <div class="win-toolbar">
+              <h2>{lang === 'zh' ? '最新文章' : 'Latest articles'}</h2>
+              <span class="upd">UPDATED {todayText}</span>
+            </div>
+            <div class="feed">
+              {feedNews.map((item) => (
+                <a class="feed-row" href={`/${lang}/${item.category}/${item.slug}`}>
+                  <span class="cat">NEWS</span>
+                  <span class="t">
+                    <span class="ttl">{item.title}</span>
+                    <span class="dsc">{item.summary}</span>
+                  </span>
+                  <time>{formatDate(item.publishedAt)}</time>
+                  <span class="arr">→</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div class="win-foot">
+          <span>{lang === 'zh' ? '数据来自本站 · 每日更新' : 'Live data · updated daily'}</span>
+          <a href={`/${lang}/news`}>{t.newsArchive} →</a>
+          <span class="r">{allArticles.length} ITEMS</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="shell">
+      <div class="toolbar" id="search">
+        <div class="searchbox">
+          <span class="search-icon">⌕</span>
+          <input type="text" class="search-input" placeholder={t.search} id="searchInput" />
+        </div>
+        <div class="segmented" aria-label="Language switch">
+          <a class={lang === 'zh' ? 'active' : ''} href="/zh">中文</a>
+          <a class={lang === 'en' ? 'active' : ''} href="/en">English</a>
+        </div>
+      </div>
+    </div>
+
+    <section class="shell sections">
+      <section class="blk" id="tools">
+        <div class="blk-head">
+          <span class="idx">01</span>
+          <div>
+            <h2>{sectionEn.tools}{lang === 'zh' ? <span class="zh"> · {sectionZh.tools}</span> : ''}</h2>
+            <p>{lang === 'zh' ? '从适用人群、价格、可靠性和替代品角度评估近期活跃项目' : 'Evaluate active AI projects by fit, pricing, reliability, and alternatives.'}</p>
+          </div>
+          <a class="more" href={`/${lang}/tools`}>{t.moreReviews} →</a>
+        </div>
+        <div class="cards">{tools.map((article) => <ArticleCard article={article} lang={lang} />)}</div>
       </section>
 
-      <section class="section-panel" id="news">
-        <div class="section-title">
+      <section class="blk" id="news">
+        <div class="blk-head">
+          <span class="idx">02</span>
           <div>
-            <h2>{t.news}</h2>
-            <span>{lang === 'zh' ? '每日高热消息摘要，并补充影响分析' : 'Daily high-signal AI news with impact analysis.'}</span>
+            <h2>{sectionEn.news}{lang === 'zh' ? <span class="zh"> · {sectionZh.news}</span> : ''}</h2>
+            <p>{lang === 'zh' ? '每日高热消息摘要，并补充影响分析' : 'Daily high-signal AI news with impact analysis.'}</p>
           </div>
-          <a class="pill-btn" href={`/${lang}/news`}>{t.newsArchive}</a>
+          <a class="more" href={`/${lang}/news`}>{t.newsArchive} →</a>
         </div>
-        <div class="news-list">
+        <div class="feed">
           {news.map((item) => (
-            <article class="news-row">
-              <div><h3><a href={`/${lang}/${item.category}/${item.slug}`}>{item.title}</a></h3><p>{item.summary}</p></div>
-              <span class="tag red">Heat {item.heatScore}</span>
-            </article>
+            <a class="feed-row" href={`/${lang}/${item.category}/${item.slug}`}>
+              <span class="cat">NEWS</span>
+              <span class="t">
+                <span class="ttl">{item.title}</span>
+                <span class="dsc">{item.summary}</span>
+              </span>
+              <time>{formatDate(item.publishedAt)} · Heat {item.heatScore}</time>
+              <span class="arr">→</span>
+            </a>
           ))}
         </div>
       </section>
 
-      <section class="section-panel" id="resources">
-        <div class="section-title">
+      <section class="blk" id="resources">
+        <div class="blk-head">
+          <span class="idx">03</span>
           <div>
-            <h2>{t.resources}</h2>
-            <span>{lang === 'zh' ? '免费额度、开源资源、课程和可领取权益，标注时效与限制' : 'Credits, open-source assets, courses, and limited resources with constraints.'}</span>
+            <h2>{sectionEn.resources}{lang === 'zh' ? <span class="zh"> · {sectionZh.resources}</span> : ''}</h2>
+            <p>{lang === 'zh' ? '免费额度、开源资源、课程和可领取权益，标注时效与限制' : 'Credits, open-source assets, courses, and limited resources with constraints.'}</p>
           </div>
-          <a class="pill-btn" href={`/${lang}/resources`}>{t.resourceLibrary}</a>
+          <a class="more" href={`/${lang}/resources`}>{t.resourceLibrary} →</a>
         </div>
-        <div class="cards-3">{resources.map((article) => <ArticleCard article={article} lang={lang} />)}</div>
+        <div class="cards">{resources.map((article) => <ArticleCard article={article} lang={lang} />)}</div>
       </section>
 
-      <section class="section-panel" id="research">
-        <div class="section-title">
+      <section class="blk" id="research">
+        <div class="blk-head">
+          <span class="idx">04</span>
           <div>
-            <h2>{t.research}</h2>
-            <span>{lang === 'zh' ? '把近期热门概念讲清楚，给出背景、玩家、争议和判断' : 'Explain hot AI concepts with context, players, controversy, and judgment.'}</span>
+            <h2>{sectionEn.research}{lang === 'zh' ? <span class="zh"> · {sectionZh.research}</span> : ''}</h2>
+            <p>{lang === 'zh' ? '把近期热门概念讲清楚，给出背景、玩家、争议和判断' : 'Explain hot AI concepts with context, players, controversy, and judgment.'}</p>
           </div>
-          <a class="pill-btn" href={`/${lang}/research`}>{t.researchTopics}</a>
+          <a class="more" href={`/${lang}/research`}>{t.researchTopics} →</a>
         </div>
-        <div class="cards-3">{research.map((article) => <ArticleCard article={article} lang={lang} />)}</div>
+        <div class="cards">{research.map((article) => <ArticleCard article={article} lang={lang} />)}</div>
       </section>
 
-      <section class="section-panel" id="prompts">
-        <div class="section-title">
+      {prompts.length > 0 && (
+      <section class="blk" id="prompts">
+        <div class="blk-head">
+          <span class="idx">05</span>
           <div>
-            <h2>{t.prompts}</h2>
-            <span>{lang === 'zh' ? '精选近三个月内出现或更新、可直接复用的高质量提示词与完整 AI 工作流。' : 'Reusable, high-quality prompts and complete AI workflows published or updated within the past three months.'}</span>
+            <h2>{sectionEn.prompts}{lang === 'zh' ? <span class="zh"> · {sectionZh.prompts}</span> : ''}</h2>
+            <p>{lang === 'zh' ? '精选近三个月内出现或更新、可直接复用的高质量提示词与完整 AI 工作流。' : 'Reusable, high-quality prompts and complete AI workflows published or updated within the past three months.'}</p>
           </div>
-          <a class="pill-btn" href={`/${lang}/prompts`}>{t.promptLibrary}</a>
+          <a class="more" href={`/${lang}/prompts`}>{t.promptLibrary} →</a>
         </div>
-        <div class="cards-3">{prompts.map((article) => <ArticleCard article={article} lang={lang} />)}</div>
+        <div class="cards">{prompts.map((article) => <ArticleCard article={article} lang={lang} />)}</div>
       </section>
+      )}
 
-      <section class="section-panel" id="personal">
-        <div class="section-title">
+      <section class="blk" id="personal">
+        <div class="blk-head">
+          <span class="idx">06</span>
           <div>
-            <h2>{t.personal}</h2>
-            <span>{lang === 'zh' ? '站长项目、APP、教程、提示词和个人整理资源' : 'Owner-managed apps, tutorials, prompts, and curated resources.'}</span>
+            <h2>{sectionEn.personal}{lang === 'zh' ? <span class="zh"> · {sectionZh.personal}</span> : ''}</h2>
+            <p>{lang === 'zh' ? '站长项目、APP、教程、提示词和个人整理资源' : 'Owner-managed apps, tutorials, prompts, and curated resources.'}</p>
           </div>
-          <a class="pill-btn" href={`/${lang}/personal`}>{t.manageResources}</a>
+          <a class="more" href={`/${lang}/personal`}>{t.manageResources} →</a>
         </div>
         {personal.map((resource) => (
           <div class="resource-strip">
             <div>
-              <span class="tag teal">{resource.resourceType}</span>
+              <span class="tag">{resource.resourceType}</span>
               <h3>{resource.title}</h3>
               <p>{resource.description}</p>
             </div>
@@ -167,11 +245,11 @@ const todayText = lang === 'zh'
         ))}
       </section>
 
-      <section class="section-panel feedback-panel" id="feedback">
-        <div class="section-title">
+      <section class="blk feedback-blk" id="feedback">
+        <div class="blk-head">
           <div>
             <h2>{t.feedbackTitle}</h2>
-            <span>{t.feedbackDesc}</span>
+            <p>{t.feedbackDesc}</p>
           </div>
         </div>
         {feedbackSent && <p class="feedback-success">{t.feedbackSent}</p>}
@@ -191,14 +269,16 @@ const todayText = lang === 'zh'
   <script>
     const input = document.getElementById('searchInput');
     if (input) {
-      const sections = document.querySelectorAll('.sections .section-panel:not(.feedback-panel)');
-      const allCards = document.querySelectorAll('.sections .card, .sections .news-row, .sections .brief-item, .sections .resource-strip');
+      const sections = document.querySelectorAll('.sections section.blk:not(.feedback-blk)');
+      const windowZone = document.querySelector('.window-zone');
+      const allCards = document.querySelectorAll('.sections .card, .sections .feed-row, .sections .resource-strip, .window .feed-row');
 
       input.addEventListener('input', () => {
         const query = (input as HTMLInputElement).value.trim().toLowerCase();
         if (!query) {
           allCards.forEach(card => (card as HTMLElement).style.display = '');
           sections.forEach(section => (section as HTMLElement).style.display = '');
+          if (windowZone) (windowZone as HTMLElement).style.display = '';
           return;
         }
         allCards.forEach(card => {
@@ -206,9 +286,13 @@ const todayText = lang === 'zh'
           (card as HTMLElement).style.display = text.includes(query) ? '' : 'none';
         });
         sections.forEach(section => {
-          const visibleChildren = section.querySelectorAll('.card:not([style*="display: none"]), .news-row:not([style*="display: none"]), .resource-strip:not([style*="display: none"])');
+          const visibleChildren = section.querySelectorAll('.card:not([style*="display: none"]), .feed-row:not([style*="display: none"]), .resource-strip:not([style*="display: none"])');
           (section as HTMLElement).style.display = visibleChildren.length > 0 ? '' : 'none';
         });
+        if (windowZone) {
+          const visibleFeed = windowZone.querySelectorAll('.feed-row:not([style*="display: none"])');
+          (windowZone as HTMLElement).style.display = visibleFeed.length > 0 ? '' : 'none';
+        }
       });
     }
   </script>
