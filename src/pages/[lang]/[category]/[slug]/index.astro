@@ -1,9 +1,10 @@
 ---
 import BaseLayout from '../../../../layouts/BaseLayout.astro';
+import ArticleCard from '../../../../components/ArticleCard.astro';
 import PromptDetail from '../../../../components/PromptDetail.astro';
-import { getArticleBySlug, getDb, getResearchArtifactsForArticle, getSourcesForGroup } from '../../../../lib/db';
-import { renderMarkdown } from '../../../../lib/markdown';
-import { categoryLabels, ui, type UiLanguage } from '../../../../lib/i18n';
+import { getArticleBySlug, getDb, getResearchArtifactsForArticle, getSourcesForGroup, listArticles } from '../../../../lib/db';
+import { renderMarkdown, stripMarkdown } from '../../../../lib/markdown';
+import { categoryLabels, isCategoryLabel, ui, type UiLanguage } from '../../../../lib/i18n';
 import type { Category } from '../../../../lib/types';
 
 const lang = Astro.params.lang as UiLanguage;
@@ -24,6 +25,9 @@ if (!article || article.category !== category) {
 
 const sources = await getSourcesForGroup(db, article.contentGroupId);
 const researchArtifacts = await getResearchArtifactsForArticle(db, article.id);
+const sameCategory = category === 'prompts' ? [] : (await listArticles(db, lang, { category, limit: 6 })).filter((item) => item.id !== article.id);
+const recommended = sameCategory.slice(0, 5);
+const related = sameCategory.slice(0, 3);
 const t = ui[lang];
 const html = renderMarkdown(article.contentMarkdown);
 const formatDate = (value: string | null) => {
@@ -35,8 +39,8 @@ const formatDate = (value: string | null) => {
     : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 const canonicalUrl = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin).toString();
-const pageTitle = article.seoTitle ?? article.title;
-const pageDescription = article.seoDescription ?? article.summary;
+const pageTitle = article.title;
+const pageDescription = article.seoDescription ?? stripMarkdown(article.summary);
 const articleJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Article',
@@ -78,17 +82,19 @@ const breadcrumbJsonLd = {
     {category === 'prompts' ? (
       <PromptDetail article={article} sources={sources} lang={lang} />
     ) : (
+    <>
     <section class="shell article-grid">
       <article class="article-panel">
         <div class="lead-meta">
-          <span class="tag teal">{categoryLabels[lang][article.category]}</span>
-          <span class="tag amber">Heat {article.heatScore}</span>
-          <span class="tag blue">Quality {article.sourceQualityScore}</span>
+          <span class="tag-cat">{categoryLabels[lang][article.category]}</span>
+          <span class={article.heatScore > 80 ? 'tag-score hot' : 'tag-score'}>Heat {article.heatScore}</span>
+          <span class="tag-score">Quality {article.sourceQualityScore}</span>
         </div>
         <h1>{article.title}</h1>
-        <p class="summary">{article.summary}</p>
+        <p class="article-meta">ACP AI Research · {lang === 'zh' ? '人工审核' : 'Human-reviewed'} · {lang === 'zh' ? `约 ${article.readingTime} 分钟阅读` : `~${article.readingTime} min read`}</p>
+        <p class="summary">{stripMarkdown(article.summary)}</p>
         <div class="lead-meta">
-          {article.tags.map((tag) => <span class="tag">{tag}</span>)}
+          {article.tags.filter((tag) => !isCategoryLabel(tag, article.category)).map((tag) => <span class="tag">{tag}</span>)}
         </div>
         {researchArtifacts.claims.length > 0 && (
           <section class="research-block key-claims" aria-label={lang === 'zh' ? '核心结论' : 'Key claims'}>
@@ -98,8 +104,8 @@ const breadcrumbJsonLd = {
                 <li>
                   <p>{claim.claimText}</p>
                   <div class="lead-meta compact-meta">
-                    <span class="tag blue">{claim.claimType}</span>
-                    <span class="tag amber">{claim.confidence}</span>
+                    <span class="tag-score">{claim.claimType}</span>
+                    <span class="tag-score">{claim.confidence}</span>
                   </div>
                 </li>
               ))}
@@ -123,14 +129,24 @@ const breadcrumbJsonLd = {
         <div class="sidebar-box">
           <h2>{lang === 'zh' ? '发布信息' : 'Publish Info'}</h2>
           <p class="notice">{article.status === 'published' ? t.published : t.pendingReview}</p>
-          <p class="notice">{lang === 'zh' ? '发布日期' : 'Published'}: {formatDate(article.publishedAt)}</p>
+          <p class="notice">{lang === 'zh' ? '发布日期' : 'Published'}: <span class="nowrap">{formatDate(article.publishedAt)}</span></p>
         </div>
+        {recommended.length > 0 && (
+          <div class="sidebar-box">
+            <h2>{lang === 'zh' ? '同栏目推荐' : 'More in this section'}</h2>
+            <ul>
+              {recommended.map((item) => (
+                <li><a href={`/${lang}/${item.category}/${item.slug}`}>{item.title}</a></li>
+              ))}
+            </ul>
+          </div>
+        )}
         {researchArtifacts.updates.length > 0 && (
           <div class="sidebar-box">
             <h2>{lang === 'zh' ? '更新记录' : 'Updates'}</h2>
             <ul>
               {researchArtifacts.updates.slice(0, 5).map((update) => (
-                <li><p class="notice">{formatDate(update.createdAt)} · {update.updateNote}</p></li>
+                <li><p class="notice"><span class="nowrap">{formatDate(update.createdAt)}</span> · {update.updateNote}</p></li>
               ))}
             </ul>
           </div>
@@ -152,7 +168,7 @@ const breadcrumbJsonLd = {
               <li>
                 <a href={source.url} target="_blank" rel="noreferrer">{source.title}</a>
                 <p class="notice">
-                  {source.publisher ?? 'Unknown'} · {lang === 'zh' ? '发表' : 'Published'}: {formatDate(source.publishedAt)} · {lang === 'zh' ? '抓取' : 'Retrieved'}: {formatDate(source.retrievedAt)}
+                  {source.publisher ?? 'Unknown'} · {lang === 'zh' ? '发表' : 'Published'}: <span class="nowrap">{formatDate(source.publishedAt)}</span> · {lang === 'zh' ? '抓取' : 'Retrieved'}: <span class="nowrap">{formatDate(source.retrievedAt)}</span>
                 </p>
               </li>
             ))}
@@ -164,6 +180,20 @@ const breadcrumbJsonLd = {
         </div>
       </aside>
     </section>
+    {related.length > 0 && (
+      <section class="shell related">
+        <div class="blk-head">
+          <div>
+            <h2>{lang === 'zh' ? '相关文章' : 'Related articles'}</h2>
+          </div>
+          <a class="more" href={`/${lang}/${category}`}>{lang === 'zh' ? '查看全部' : 'View all'} →</a>
+        </div>
+        <div class="cards">
+          {related.map((item) => <ArticleCard article={item} lang={lang} />)}
+        </div>
+      </section>
+    )}
+    </>
     )}
   </main>
 </BaseLayout>

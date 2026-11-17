@@ -59,7 +59,7 @@ const ogLocaleAlternate = lang === 'zh' ? 'en_US' : 'zh_CN';
           <span>ACP</span>
           <small>AI Research</small>
         </a>
-        <nav class="links" aria-label="Primary navigation">
+        <nav class="links" id="primaryNav" aria-label="Primary navigation">
           <a href={`/${lang}#today`}>{t.today}</a>
           <a href={`/${lang}/tools`}>{t.tools}</a>
           <a href={`/${lang}/news`}>{t.news}</a>
@@ -73,6 +73,7 @@ const ogLocaleAlternate = lang === 'zh' ? 'en_US' : 'zh_CN';
           <a class="pill-btn" href="/rss.xml">RSS</a>
           <a class="icon-btn" title="Search" aria-label="Search" href={`/${lang}#search`} onclick="const el=document.getElementById('searchInput');if(el){event.preventDefault();el.scrollIntoView({behavior:'smooth',block:'center'});setTimeout(()=>el.focus(),300);}">⌕</a>
           <a class="pill-btn" title="Switch language" href={otherPath}>{otherLang.toUpperCase()}</a>
+          <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primaryNav" aria-label="Menu">☰</button>
         </div>
       </div>
     </header>
@@ -98,10 +99,15 @@ const ogLocaleAlternate = lang === 'zh' ? 'en_US' : 'zh_CN';
             <a href={`/${lang}/personal`}>{t.personal}</a>
           </div>
           <div class="foot-col">
-            <h4>{lang === 'zh' ? '现站' : 'Site'}</h4>
+            <h4>{lang === 'zh' ? '本站' : 'Site'}</h4>
             <a href="/rss.xml">RSS</a>
             <a href="/sitemap.xml">Sitemap</a>
             <a href="/privacy">Privacy</a>
+          </div>
+          <div class="foot-col">
+            <h4>{lang === 'zh' ? '关于本站' : 'About'}</h4>
+            <p class="foot-about">{lang === 'zh' ? '每日 AI 新闻、工具与研究，中英双语，来源可查。' : 'Daily AI news, tools and research in English and Chinese, with verifiable sources.'}</p>
+            <a href={`/${lang}#feedback`}>{lang === 'zh' ? '提交建议 →' : 'Send feedback →'}</a>
           </div>
         </div>
         <div class="foot-bottom">
@@ -110,5 +116,22 @@ const ogLocaleAlternate = lang === 'zh' ? 'en_US' : 'zh_CN';
         </div>
       </div>
     </footer>
+    <script is:inline>
+      (function () {
+        var toggle = document.querySelector('.nav-toggle');
+        var header = document.querySelector('.topbar');
+        if (!toggle || !header) return;
+        toggle.addEventListener('click', function () {
+          var open = header.classList.toggle('nav-open');
+          toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        header.querySelectorAll('.links a').forEach(function (link) {
+          link.addEventListener('click', function () {
+            header.classList.remove('nav-open');
+            toggle.setAttribute('aria-expanded', 'false');
+          });
+        });
+      })();
+    </script>
   </body>
 </html>

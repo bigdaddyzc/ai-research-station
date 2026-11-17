@@ -13,7 +13,7 @@ export const ui = {
     personal: '个人资源',
     feedback: '提交建议',
     feedbackTitle: '给站长提建议',
-    feedbackDesc: '发现内容缺口、工具更新、页面问题或想看某个主题，都可以直接告诉我。站长会在后台查看并反馈。',
+    feedbackDesc: '发现内容缺口、工具更新或页面问题，欢迎直接告诉站长。',
     feedbackName: '称呼（可选）',
     feedbackEmail: '邮箱（可选，便于回复）',
     feedbackMessage: '你的建议',
@@ -42,12 +42,12 @@ export const ui = {
   },
   en: {
     today: 'Today',
-    tools: 'AI Tool Reviews',
+    tools: 'Tool Reviews',
     news: 'AI News',
-    resources: 'AI Resources',
-    research: 'Deep Research',
-    prompts: 'AI Prompts / Workflows',
-    personal: 'Personal Resources',
+    resources: 'Resources',
+    research: 'Research',
+    prompts: 'Prompts / Workflows',
+    personal: 'Personal',
     feedback: 'Feedback',
     feedbackTitle: 'Send feedback',
     feedbackDesc: 'Share missing topics, tool updates, page issues, or ideas you want covered. The site owner can review and respond from the admin desk.',
@@ -79,8 +79,7 @@ export const ui = {
   },
 };
 
-export const categoryLabels = {
-  zh: {
+export const categoryLabels = {  zh: {
     tools: '工具评测',
     news: 'AI新闻',
     resources: '资源分享',
@@ -97,3 +96,32 @@ export const categoryLabels = {
     personal: 'Personal',
   },
 };
+
+/** Normalize mixed-language keyword tags to one display form per language. */
+const tagDisplay: Record<string, { zh: string; en: string }> = {
+  prompt: { zh: '提示词', en: 'Prompt' },
+  workflow: { zh: '工作流', en: 'Workflow' },
+  llm: { zh: '大模型', en: 'LLM' },
+  'prompt engineering': { zh: '提示词工程', en: 'Prompt Engineering' },
+  'prompt-engineering': { zh: '提示词工程', en: 'Prompt Engineering' },
+};
+
+export function displayTag(tag: string, lang: UiLanguage): string {
+  const hit = tagDisplay[tag.trim().toLowerCase()];
+  return hit ? hit[lang] : tag;
+}
+
+/** All display variants of a category's label (nav label vs card label, zh vs en). */
+const categoryLabelVariants: Record<string, string[]> = {
+  tools: ['工具评测', 'AI工具评测', 'Tool Review', 'Tool Reviews'],
+  news: ['AI新闻', 'AI News'],
+  resources: ['资源分享', 'AI资源', 'Resource', 'Resources'],
+  research: ['深度研究', 'Deep Research'],
+  prompts: ['提示词 / 工作流', 'AI提示词 / 工作流', 'Prompt / Workflow', 'AI Prompts / Workflows', 'Prompts / Workflows'],
+  personal: ['个人资源', 'Personal', 'Personal Resources'],
+};
+
+/** True when a keyword tag just restates its own category label. */
+export function isCategoryLabel(tag: string, category: string): boolean {
+  return (categoryLabelVariants[category] ?? []).includes(tag.trim());
+}

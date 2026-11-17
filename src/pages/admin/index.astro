@@ -77,8 +77,8 @@ const formatDate = (value: string | null) => {
             <div class="admin-grid">
               <div>
                 <div class="lead-meta">
-                  <span class="tag teal">{feedback.language}</span>
-                  <span class="tag blue">{feedback.status}</span>
+                  <span class="tag-cat">{feedback.language}</span>
+                  <span class="tag-score">{feedback.status}</span>
                   <span class="tag">{formatDate(feedback.createdAt)}</span>
                 </div>
                 <h3>{feedback.name ?? 'Anonymous'}</h3>
@@ -106,9 +106,9 @@ const formatDate = (value: string | null) => {
               <div>
                 <div class="lead-meta">
                   <label class="batch-checkbox"><input type="checkbox" class="group-checkbox" data-group-id={group.id} /></label>
-                  <span class="tag teal">{group.category}</span>
-                  <span class="tag amber">Heat {group.heatScore}</span>
-                  <span class="tag blue">Quality {group.sourceQualityScore}</span>
+                  <span class="tag-cat">{group.category}</span>
+                  <span class="tag-score">Heat {group.heatScore}</span>
+                  <span class="tag-score">Quality {group.sourceQualityScore}</span>
                 </div>
                 <h2>{group.canonicalSlug}</h2>
                 <p class="notice">{sources.length} sources · status: {group.status}</p>
@@ -166,9 +166,9 @@ const formatDate = (value: string | null) => {
             <div class="admin-grid">
               <div>
                 <div class="lead-meta">
-                  <span class="tag teal">{group.category}</span>
-                  <span class="tag amber">Heat {group.heatScore}</span>
-                  <span class="tag blue">Quality {group.sourceQualityScore}</span>
+                  <span class="tag-cat">{group.category}</span>
+                  <span class="tag-score">Heat {group.heatScore}</span>
+                  <span class="tag-score">Quality {group.sourceQualityScore}</span>
                 </div>
                 <h2>{group.canonicalSlug}</h2>
                 <p class="notice">{sources.length} sources · status: {group.status} · published: {formatDate(group.publishedAt)}</p>
@@ -206,9 +206,9 @@ const formatDate = (value: string | null) => {
               <input type="hidden" name="id" value={resource.id} />
               <div class="admin-grid" style="margin-bottom:12px;">
                 <div class="lead-meta">
-                  <span class="tag teal">{resource.language}</span>
+                  <span class="tag-cat">{resource.language}</span>
                   <span class="tag">{resource.resourceType}</span>
-                  {resource.isFeatured && <span class="tag amber">Featured</span>}
+                  {resource.isFeatured && <span class="tag-score">Featured</span>}
                 </div>
                 <div class="admin-actions">
                   <button class="form-btn primary" type="submit">Save</button>

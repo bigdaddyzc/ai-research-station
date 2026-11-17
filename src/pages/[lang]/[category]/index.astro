@@ -56,23 +56,19 @@ const desc: Record<Category, string> = lang === 'zh'
     </section>
     <section class="shell sections">
       {isPersonal ? (
-        <div>
+        <div class="cards">
           {personal.length === 0 && (
             <p style="color: var(--muted); text-align: center; padding: 40px 0;">
               {lang === 'zh' ? '暂无个人资源。' : 'No personal resources yet.'}
             </p>
           )}
           {personal.map((resource) => (
-            <div class="resource-strip">
-              <div>
-                <span class="tag">{resource.resourceType}</span>
-                <h3>{resource.title}</h3>
-                <p>{resource.description}</p>
-              </div>
-              <a class="pill-btn primary" href={resource.url} target={resource.url.startsWith('/') ? undefined : '_blank'} rel={resource.url.startsWith('/') ? undefined : 'noopener noreferrer'}>
-                {resource.url === '/app' ? t.openApp : t.readMore}
-              </a>
-            </div>
+            <article class="card">
+              <div class="top"><span class="tag-cat">{titles[category]}</span></div>
+              <h3><a href={resource.url} target={resource.url.startsWith('/') ? undefined : '_blank'} rel={resource.url.startsWith('/') ? undefined : 'noopener noreferrer'}>{resource.title}</a></h3>
+              <p>{resource.description}</p>
+              <a class="go" href={resource.url} target={resource.url.startsWith('/') ? undefined : '_blank'} rel={resource.url.startsWith('/') ? undefined : 'noopener noreferrer'}>{resource.url === '/app' ? t.openApp : t.readMore} →</a>
+            </article>
           ))}
         </div>
       ) : isPrompts ? (
@@ -106,13 +102,42 @@ const desc: Record<Category, string> = lang === 'zh'
           </div>
         </div>
       ) : (
-        <div class="cards">
-          {articles.map((article) => <ArticleCard article={article} lang={lang} />)}
-        </div>
+        <>
+          <div class="cards" data-show-more>
+            {articles.map((article) => <ArticleCard article={article} lang={lang} />)}
+          </div>
+          {articles.length > 9 && (
+            <div class="show-more-wrap" data-show-more-wrap>
+              <button class="pill-btn" type="button" data-show-more-btn>{lang === 'zh' ? '显示更多' : 'Show more'}</button>
+            </div>
+          )}
+        </>
       )}
     </section>
   </main>
 </BaseLayout>
+
+<script>
+  (function () {
+    const list = document.querySelector('[data-show-more]');
+    const btn = document.querySelector('[data-show-more-btn]');
+    const wrap = document.querySelector('[data-show-more-wrap]');
+    if (!list || !btn || !wrap) return;
+    const cards = Array.from(list.children);
+    let shown = 9;
+    const update = () => {
+      cards.forEach((card, i) => {
+        (card as HTMLElement).style.display = i < shown ? '' : 'none';
+      });
+      (wrap as HTMLElement).style.display = shown >= cards.length ? 'none' : '';
+    };
+    btn.addEventListener('click', () => {
+      shown += 9;
+      update();
+    });
+    update();
+  })();
+</script>
 
 {isPrompts && (
   <script>

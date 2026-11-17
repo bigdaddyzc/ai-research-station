@@ -3,7 +3,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import ArticleCard from '../../components/ArticleCard.astro';
 import { getDb, listArticles, listPersonalResources } from '../../lib/db';
 import { pickLeadArticle } from '../../lib/lead';
-import { ui, categoryLabels, type UiLanguage } from '../../lib/i18n';
+import { stripMarkdown } from '../../lib/markdown';
+import { ui, categoryLabels, isCategoryLabel, type UiLanguage } from '../../lib/i18n';
 
 const lang = Astro.params.lang as UiLanguage;
 if (lang !== 'zh' && lang !== 'en') {
@@ -21,6 +22,8 @@ const research = allArticles.filter((article) => article.category === 'research'
 const prompts = allArticles.filter((article) => article.category === 'prompts').slice(0, 3);
 const personal = await listPersonalResources(db, lang);
 const lead = pickLeadArticle(allArticles);
+const leadCategoryLabel = lead ? categoryLabels[lang][lead.category as keyof typeof categoryLabels['zh']] : '';
+const leadTags = (lead?.tags ?? []).filter((tag) => !isCategoryLabel(tag, lead?.category ?? '')).slice(0, 3);
 const now = new Date();
 const feedbackSent = Astro.url.searchParams.get('feedback') === 'sent';
 const todayText = lang === 'zh'
@@ -63,12 +66,12 @@ const sectionZh: Record<string, string> = {
       <div class="shell">
         <span class="chip"><span class="dot"></span><b>{todayText}</b> · {t.reviewed} · {t.bilingual}</span>
         <h1>{lead?.title}</h1>
-        <p class="hero-sub">{lead?.summary}</p>
+        <p class="hero-sub">{lead ? stripMarkdown(lead.summary) : ''}</p>
         <div class="lead-meta hero-tags">
-          <span class="tag teal">{categoryLabels[lang][lead?.category as keyof typeof categoryLabels['zh']] ?? t.news}</span>
-          <span class="tag amber">Quality {lead?.sourceQualityScore ?? 0}</span>
-          <span class="tag red">Heat {lead?.heatScore ?? 0}</span>
-          {lead?.tags.slice(0, 3).map((tag) => <span class="tag">{tag}</span>)}
+          <span class="tag-cat">{leadCategoryLabel || t.news}</span>
+          <span class="tag-score">Quality {lead?.sourceQualityScore ?? 0}</span>
+          <span class={lead && lead.heatScore > 80 ? 'tag-score hot' : 'tag-score'}>Heat {lead?.heatScore ?? 0}</span>
+          {leadTags.map((tag) => <span class="tag">{tag}</span>)}
         </div>
         <div class="hero-actions">
           {lead && <a class="pill-btn primary btn-lg" href={`/${lang}/${lead.category}/${lead.slug}`}>{t.readMore}</a>}
@@ -119,10 +122,10 @@ const sectionZh: Record<string, string> = {
                   <span class="cat">NEWS</span>
                   <span class="t">
                     <span class="ttl">{item.title}</span>
-                    <span class="dsc">{item.summary}</span>
+                    <span class="dsc">{stripMarkdown(item.summary)}</span>
                   </span>
                   <time>{formatDate(item.publishedAt)}</time>
-                  <span class="tag red">Heat {item.heatScore}</span>
+                  <span class={item.heatScore > 80 ? 'tag-score hot' : 'tag-score'}>Heat {item.heatScore}</span>
                   <span class="arr">→</span>
                 </a>
               ))}
@@ -142,10 +145,6 @@ const sectionZh: Record<string, string> = {
         <div class="searchbox">
           <span class="search-icon">⌕</span>
           <input type="text" class="search-input" placeholder={t.search} id="searchInput" />
-        </div>
-        <div class="segmented" aria-label="Language switch">
-          <a class={lang === 'zh' ? 'active' : ''} href="/zh">中文</a>
-          <a class={lang === 'en' ? 'active' : ''} href="/en">English</a>
         </div>
       </div>
     </div>
@@ -178,10 +177,10 @@ const sectionZh: Record<string, string> = {
               <span class="cat">NEWS</span>
               <span class="t">
                 <span class="ttl">{item.title}</span>
-                <span class="dsc">{item.summary}</span>
+                <span class="dsc">{stripMarkdown(item.summary)}</span>
               </span>
               <time>{formatDate(item.publishedAt)}</time>
-              <span class="tag red">Heat {item.heatScore}</span>
+              <span class={item.heatScore > 80 ? 'tag-score hot' : 'tag-score'}>Heat {item.heatScore}</span>
               <span class="arr">→</span>
             </a>
           ))}
@@ -228,23 +227,23 @@ const sectionZh: Record<string, string> = {
 
       <section class="blk" id="personal">
         <div class="blk-head">
-          <span class="idx">06</span>
+          <span class="idx">{prompts.length > 0 ? '06' : '05'}</span>
           <div>
             <h2>{sectionEn.personal}{lang === 'zh' ? <span class="zh"> · {sectionZh.personal}</span> : ''}</h2>
             <p>{lang === 'zh' ? '站长项目、APP、教程、提示词和个人整理资源' : 'Owner-managed apps, tutorials, prompts, and curated resources.'}</p>
           </div>
           <a class="more" href={`/${lang}/personal`}>{t.manageResources} →</a>
         </div>
-        {personal.map((resource) => (
-          <div class="resource-strip">
-            <div>
-              <span class="tag">{resource.resourceType}</span>
-              <h3>{resource.title}</h3>
+        <div class="cards">
+          {personal.map((resource) => (
+            <article class="card">
+              <div class="top"><span class="tag-cat">{t.personal}</span></div>
+              <h3><a href={resource.url} target={resource.url.startsWith('/') ? undefined : '_blank'} rel={resource.url.startsWith('/') ? undefined : 'noopener noreferrer'}>{resource.title}</a></h3>
               <p>{resource.description}</p>
-            </div>
-            <a class="pill-btn primary" href={resource.url}>{resource.url === '/app' ? t.openApp : t.readMore}</a>
-          </div>
-        ))}
+              <a class="go" href={resource.url} target={resource.url.startsWith('/') ? undefined : '_blank'} rel={resource.url.startsWith('/') ? undefined : 'noopener noreferrer'}>{resource.url === '/app' ? t.openApp : t.readMore} →</a>
+            </article>
+          ))}
+        </div>
       </section>
 
       <section class="blk feedback-blk" id="feedback">
@@ -262,7 +261,7 @@ const sectionZh: Record<string, string> = {
             <input class="input" name="name" placeholder={t.feedbackName} maxlength="80" />
             <input class="input" name="email" type="email" placeholder={t.feedbackEmail} maxlength="160" />
           </div>
-          <textarea class="input textarea" name="message" placeholder={t.feedbackMessage} rows="5" maxlength="2000" required></textarea>
+          <textarea class="input textarea" name="message" placeholder={t.feedbackMessage} rows="3" maxlength="2000" required></textarea>
           <button class="form-btn primary" type="submit">{t.feedbackSubmit}</button>
         </form>
       </section>
@@ -273,7 +272,7 @@ const sectionZh: Record<string, string> = {
     if (input) {
       const sections = document.querySelectorAll('.sections section.blk:not(.feedback-blk)');
       const windowZone = document.querySelector('.window-zone');
-      const allCards = document.querySelectorAll('.sections .card, .sections .feed-row, .sections .resource-strip, .window .feed-row');
+      const allCards = document.querySelectorAll('.sections .card, .sections .feed-row, .window .feed-row');
 
       input.addEventListener('input', () => {
         const query = (input as HTMLInputElement).value.trim().toLowerCase();
@@ -288,7 +287,7 @@ const sectionZh: Record<string, string> = {
           (card as HTMLElement).style.display = text.includes(query) ? '' : 'none';
         });
         sections.forEach(section => {
-          const visibleChildren = section.querySelectorAll('.card:not([style*="display: none"]), .feed-row:not([style*="display: none"]), .resource-strip:not([style*="display: none"])');
+          const visibleChildren = section.querySelectorAll('.card:not([style*="display: none"]), .feed-row:not([style*="display: none"])');
           (section as HTMLElement).style.display = visibleChildren.length > 0 ? '' : 'none';
         });
         if (windowZone) {

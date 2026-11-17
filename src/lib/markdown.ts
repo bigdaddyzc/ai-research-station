@@ -116,11 +116,11 @@ export function renderMarkdown(markdown: string): string {
           while (out.length < headerCells.length) out.push('');
           return out;
         };
-        html.push(`<table><thead><tr>${headerCells.map((c) => `<th>${inlineFormat(c)}</th>`).join('')}</tr></thead><tbody>`);
+        html.push(`<div class="table-scroll"><table><thead><tr>${headerCells.map((c) => `<th>${inlineFormat(shortenHeader(c))}</th>`).join('')}</tr></thead><tbody>`);
         for (const row of rows) {
           html.push(`<tr>${normalize(row).map((c) => `<td>${inlineFormat(c)}</td>`).join('')}</tr>`);
         }
-        html.push('</tbody></table>');
+        html.push('</tbody></table></div>');
         i = j - 1;
         continue;
       }
@@ -147,6 +147,32 @@ function parseTableRow(line: string): string[] | null {
 
 function isSeparatorRow(cells: string[]): boolean {
   return cells.length > 0 && cells.every((c) => /^:?-+:?$/.test(c));
+}
+
+/** Shorten the known long pricing-table headers so columns don't crush. */
+const SHORT_HEADERS: Record<string, string> = {
+  '比较维度': '维度',
+  '开放权重模型平均价格': '开源模型均价',
+  '闭源私有模型参考价格': '闭源模型参考价',
+  '策略控制后缀': '策略后缀',
+  '对应支持 API 结构': '支持 API',
+};
+
+function shortenHeader(cell: string): string {
+  return SHORT_HEADERS[cell.trim()] ?? cell;
+}
+
+/** Strip Markdown syntax to plain text (for summaries shown in cards/feeds). */
+export function stripMarkdown(text: string): string {
+  let s = text;
+  s = s.replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1');
+  s = s.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1');
+  s = s.replace(/`{1,3}([^`]+)`{1,3}/g, '$1');
+  s = s.replace(/\*\*([^*]+)\*\*/g, '$1');
+  s = s.replace(/(?<!\w)\*([^*]+)\*(?!\w)/g, '$1');
+  s = s.replace(/^#{1,6}\s+/gm, '');
+  s = s.replace(/\s+/g, ' ').trim();
+  return s;
 }
 
 function inlineFormat(text: string): string {

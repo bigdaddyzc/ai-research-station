@@ -1,7 +1,7 @@
 ---
 import { Check, Copy, ExternalLink, FileText, Workflow } from 'lucide-astro';
-import { categoryLabels, type UiLanguage } from '../lib/i18n';
-import { renderMarkdown } from '../lib/markdown';
+import { categoryLabels, displayTag, type UiLanguage } from '../lib/i18n';
+import { renderMarkdown, stripMarkdown } from '../lib/markdown';
 import { getPromptArtifact } from '../lib/prompt-artifact';
 import type { Article, Source } from '../lib/types';
 
@@ -41,13 +41,13 @@ const labels = lang === 'zh'
           {isWorkflow ? <Workflow size={15} /> : <FileText size={15} />}
           {isWorkflow ? labels.workflow : labels.prompt}
         </span>
-        <span class="tag teal">{categoryLabels[lang][article.category]}</span>
+        <span class="tag-cat">{categoryLabels[lang][article.category]}</span>
         <span class="tag">{labels.published}</span>
       </div>
       <h1>{article.title}</h1>
-      <p class="summary">{article.summary}</p>
+      <p class="summary">{stripMarkdown(article.summary)}</p>
       <div class="prompt-detail-tags">
-        {article.tags.map((tag) => <span class="tag">{tag}</span>)}
+        {article.tags.map((tag) => <span class="tag">{displayTag(tag, lang)}</span>)}
       </div>
     </header>
 
