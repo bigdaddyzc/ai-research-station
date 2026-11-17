@@ -1,10 +1,11 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import ArticleCard from '../../components/ArticleCard.astro';
-import { getDb, listArticles, listPersonalResources } from '../../lib/db';
+import { getDb, listArticles, listPersonalResources, getPrimarySources } from '../../lib/db';
 import { pickLeadArticle } from '../../lib/lead';
 import { stripMarkdown } from '../../lib/markdown';
 import { ui, categoryLabels, isCategoryLabel, type UiLanguage } from '../../lib/i18n';
+import type { Article } from '../../lib/types';
 
 const lang = Astro.params.lang as UiLanguage;
 if (lang !== 'zh' && lang !== 'en') {
@@ -13,17 +14,27 @@ if (lang !== 'zh' && lang !== 'en') {
 
 const t = ui[lang];
 const db = await getDb(Astro.locals);
-const allArticles = await listArticles(db, lang, { limit: 24 });
-const tools = allArticles.filter((article) => article.category === 'tools').slice(0, 3);
-const news = allArticles.filter((article) => article.category === 'news').slice(0, 3);
-const feedNews = allArticles.filter((article) => article.category === 'news').slice(0, 7);
-const resources = allArticles.filter((article) => article.category === 'resources').slice(0, 3);
-const research = allArticles.filter((article) => article.category === 'research').slice(0, 3);
-const prompts = allArticles.filter((article) => article.category === 'prompts').slice(0, 3);
-const personal = await listPersonalResources(db, lang);
+const allArticles = await listArticles(db, lang, { limit: 40 }); // headroom above the 24 displayed slots so dedupe never starves a section
 const lead = pickLeadArticle(allArticles);
+// Every slot on the page shows content not seen elsewhere: the hero lead is
+// excluded from every list, and the News section shows the news items AFTER
+// the 7-row latest feed window (items 8-10).
+const leadId = lead?.id;
+const notLead = (article: Article) => article.id !== leadId;
+const tools = allArticles.filter((article) => article.category === 'tools' && notLead(article)).slice(0, 3);
+const resources = allArticles.filter((article) => article.category === 'resources' && notLead(article)).slice(0, 3);
+const research = allArticles.filter((article) => article.category === 'research' && notLead(article)).slice(0, 3);
+const prompts = allArticles.filter((article) => article.category === 'prompts' && notLead(article)).slice(0, 3);
+const newsPool = await listArticles(db, lang, { category: 'news', limit: 10 });
+const feedNews = newsPool.filter(notLead).slice(0, 7);
+const news = newsPool.filter(notLead).slice(7, 10);
+const personal = await listPersonalResources(db, lang);
 const leadCategoryLabel = lead ? categoryLabels[lang][lead.category as keyof typeof categoryLabels['zh']] : '';
 const leadTags = (lead?.tags ?? []).filter((tag) => !isCategoryLabel(tag, lead?.category ?? '')).slice(0, 3);
+// Primary (most reliable) source per displayed article, one query.
+const shown = [lead, ...feedNews, ...news, ...tools, ...resources, ...research, ...prompts].filter((a): a is Article => Boolean(a));
+const primarySources = await getPrimarySources(db, [...new Set(shown.map((a) => a.contentGroupId))]);
+const leadSource = lead ? primarySources.get(lead.contentGroupId) : undefined;
 const now = new Date();
 const feedbackSent = Astro.url.searchParams.get('feedback') === 'sent';
 const todayText = lang === 'zh'
@@ -73,6 +84,13 @@ const sectionZh: Record<string, string> = {
           <span class={lead && lead.heatScore > 80 ? 'tag-score hot' : 'tag-score'}>Heat {lead?.heatScore ?? 0}</span>
           {leadTags.map((tag) => <span class="tag">{tag}</span>)}
         </div>
+        {leadSource && (
+          <p class="hero-src">{t.source}：<a href={leadSource.url} target="_blank" rel="noopener noreferrer">{leadSource.publisher ?? leadSource.title}</a></p>
+        )}
+        <details class="score-note">
+          <summary>{t.scoreHow}</summary>
+          <p>{t.scoreNote}</p>
+        </details>
         <div class="hero-actions">
           {lead && <a class="pill-btn primary btn-lg" href={`/${lang}/${lead.category}/${lead.slug}`}>{t.readMore}</a>}
           <a class="pill-btn btn-lg" href="#latest">{lang === 'zh' ? '浏览最新文章' : 'Browse latest articles'} ↓</a>
@@ -100,35 +118,28 @@ const sectionZh: Record<string, string> = {
           <span class="live"><i></i>LIVE</span>
         </div>
         <div class="win-body">
-          <aside class="win-side" aria-label="Sections">
-            <div class="side-label">ACP / SECTIONS</div>
-            <a href="#latest" class="on">{lang === 'zh' ? '最新动态' : 'Latest'}</a>
-            <a href="#news">{sectionEn.news}{lang === 'zh' ? ' 新闻' : ''}</a>
-            <a href="#tools">{sectionEn.tools}{lang === 'zh' ? ' 工具' : ''}</a>
-            <a href="#research">{sectionEn.research}{lang === 'zh' ? ' 研究' : ''}</a>
-            <a href="#resources">{sectionEn.resources}{lang === 'zh' ? ' 资源' : ''}</a>
-            <a href="#prompts">{sectionEn.prompts}{lang === 'zh' ? ' 提示词' : ''}</a>
-            <a href="#personal">{sectionEn.personal}{lang === 'zh' ? ' 个人' : ''}</a>
-            <a href="/rss.xml">RSS {lang === 'zh' ? '订阅' : 'Feed'}</a>
-          </aside>
           <div class="win-main">
             <div class="win-toolbar">
               <h2>{lang === 'zh' ? '最新文章' : 'Latest articles'}</h2>
               <span class="upd">UPDATED {todayText}</span>
             </div>
             <div class="feed">
-              {feedNews.map((item) => (
+              {feedNews.map((item) => {
+                const s = primarySources.get(item.contentGroupId);
+                return (
                 <a class="feed-row" href={`/${lang}/${item.category}/${item.slug}`}>
                   <span class="cat">NEWS</span>
                   <span class="t">
                     <span class="ttl">{item.title}</span>
                     <span class="dsc">{stripMarkdown(item.summary)}</span>
+                    {s && <span class="src">{t.source}：{s.publisher ?? s.title}</span>}
                   </span>
                   <time>{formatDate(item.publishedAt)}</time>
                   <span class={item.heatScore > 80 ? 'tag-score hot' : 'tag-score'}>Heat {item.heatScore}</span>
                   <span class="arr">→</span>
                 </a>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
@@ -159,7 +170,7 @@ const sectionZh: Record<string, string> = {
           </div>
           <a class="more" href={`/${lang}/tools`}>{t.moreReviews} →</a>
         </div>
-        <div class="cards">{tools.map((article) => <ArticleCard article={article} lang={lang} />)}</div>
+        <div class="cards">{tools.map((article) => <ArticleCard article={article} lang={lang} source={primarySources.get(article.contentGroupId)} />)}</div>
       </section>
 
       <section class="blk" id="news">
@@ -172,18 +183,22 @@ const sectionZh: Record<string, string> = {
           <a class="more" href={`/${lang}/news`}>{t.newsArchive} →</a>
         </div>
         <div class="feed">
-          {news.map((item) => (
+          {news.map((item) => {
+            const s = primarySources.get(item.contentGroupId);
+            return (
             <a class="feed-row" href={`/${lang}/${item.category}/${item.slug}`}>
               <span class="cat">NEWS</span>
               <span class="t">
                 <span class="ttl">{item.title}</span>
                 <span class="dsc">{stripMarkdown(item.summary)}</span>
+                {s && <span class="src">{t.source}：{s.publisher ?? s.title}</span>}
               </span>
               <time>{formatDate(item.publishedAt)}</time>
               <span class={item.heatScore > 80 ? 'tag-score hot' : 'tag-score'}>Heat {item.heatScore}</span>
               <span class="arr">→</span>
             </a>
-          ))}
+            );
+          })}
         </div>
       </section>
 
@@ -196,7 +211,7 @@ const sectionZh: Record<string, string> = {
           </div>
           <a class="more" href={`/${lang}/resources`}>{t.resourceLibrary} →</a>
         </div>
-        <div class="cards">{resources.map((article) => <ArticleCard article={article} lang={lang} />)}</div>
+        <div class="cards">{resources.map((article) => <ArticleCard article={article} lang={lang} source={primarySources.get(article.contentGroupId)} />)}</div>
       </section>
 
       <section class="blk" id="research">
@@ -208,7 +223,7 @@ const sectionZh: Record<string, string> = {
           </div>
           <a class="more" href={`/${lang}/research`}>{t.researchTopics} →</a>
         </div>
-        <div class="cards">{research.map((article) => <ArticleCard article={article} lang={lang} />)}</div>
+        <div class="cards">{research.map((article) => <ArticleCard article={article} lang={lang} source={primarySources.get(article.contentGroupId)} />)}</div>
       </section>
 
       {prompts.length > 0 && (
@@ -221,7 +236,7 @@ const sectionZh: Record<string, string> = {
           </div>
           <a class="more" href={`/${lang}/prompts`}>{t.promptLibrary} →</a>
         </div>
-        <div class="cards">{prompts.map((article) => <ArticleCard article={article} lang={lang} />)}</div>
+        <div class="cards">{prompts.map((article) => <ArticleCard article={article} lang={lang} source={primarySources.get(article.contentGroupId)} />)}</div>
       </section>
       )}
 
