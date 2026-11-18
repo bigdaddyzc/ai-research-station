@@ -1,7 +1,8 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import ArticleCard from '../../components/ArticleCard.astro';
-import { getDb, listArticles, listPersonalResources, getPrimarySources } from '../../lib/db';
+import { getDb, listArticles, listPersonalResources, getPrimarySources, getBriefingByDate } from '../../lib/db';
+import { briefingDate } from '../../lib/briefing';
 import { pickLeadArticle } from '../../lib/lead';
 import { stripMarkdown } from '../../lib/markdown';
 import { ui, categoryLabels, isCategoryLabel, type UiLanguage } from '../../lib/i18n';
@@ -36,6 +37,7 @@ const shown = [lead, ...feedNews, ...news, ...tools, ...resources, ...research, 
 const primarySources = await getPrimarySources(db, [...new Set(shown.map((a) => a.contentGroupId))]);
 const leadSource = lead ? primarySources.get(lead.contentGroupId) : undefined;
 const now = new Date();
+const todayBriefing = await getBriefingByDate(db, lang, briefingDate());
 const feedbackSent = Astro.url.searchParams.get('feedback') === 'sent';
 const todayText = lang === 'zh'
   ? `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`
@@ -108,6 +110,33 @@ const sectionZh: Record<string, string> = {
         </div>
       </div>
     </section>
+
+    {todayBriefing && (
+    <section class="shell sections brief-strip">
+      <section class="blk">
+        <div class="blk-head">
+          <div>
+            <h2>{t.briefingTop5}{lang === 'zh' ? <span class="zh"> · {t.briefing}</span> : ''}</h2>
+            <p>{todayBriefing.overview}</p>
+          </div>
+          <a class="more" href={`/${lang}/briefing/${todayBriefing.date}`}>{t.readBriefing} →</a>
+        </div>
+        <div class="feed">
+          {todayBriefing.items.slice(0, 5).map((item) => (
+            <a class="feed-row" href={`/${lang}/briefing/${todayBriefing.date}`}>
+              <span class="brief-rank">{item.rank}</span>
+              <span class="t">
+                <span class="ttl">{item.title}</span>
+                <span class="dsc">{stripMarkdown(item.summary)}</span>
+              </span>
+              <span class={item.score > 80 ? 'tag-score hot' : 'tag-score'}>{item.score}</span>
+              <span class="arr">→</span>
+            </a>
+          ))}
+        </div>
+      </section>
+    </section>
+    )}
 
     <section class="shell window-zone" id="latest">
       <div class="window-glow" aria-hidden="true"></div>
@@ -312,4 +341,7 @@ const sectionZh: Record<string, string> = {
       });
     }
   </script>
+  <style>
+    .brief-strip .brief-rank { flex: none; width: 26px; height: 26px; border-radius: 7px; background: var(--accent); color: #fff; font-family: var(--mono); font-size: 13px; font-weight: 600; line-height: 26px; text-align: center; align-self: center; }
+  </style>
 </BaseLayout>

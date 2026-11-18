@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { getDb } from '../lib/db';
+import { getDb, listSitemapBriefings } from '../lib/db';
 const siteUrl = 'https://acp.dpdns.org';
 const categories = ['tools', 'news', 'resources', 'research', 'prompts', 'personal'];
 
@@ -26,6 +26,20 @@ export const GET: APIRoute = async ({ locals }) => {
   urls.push(entry(siteUrl + '/zh'), entry(siteUrl + '/en'));
   for (const cat of ['tools', 'news', 'resources', 'research', 'prompts', 'personal']) {
     urls.push(entry(`${siteUrl}/zh/${cat}`), entry(`${siteUrl}/en/${cat}`));
+  }
+  urls.push(entry(`${siteUrl}/zh/briefing`), entry(`${siteUrl}/en/briefing`));
+  const briefings = await listSitemapBriefings(db);
+  const briefingsByDate = new Map<string, { publishedAt: string | null; langs: string[] }>();
+  for (const b of briefings) {
+    const e = briefingsByDate.get(b.date) ?? { publishedAt: b.publishedAt, langs: [] as string[] };
+    e.langs.push(b.language);
+    briefingsByDate.set(b.date, e);
+  }
+  for (const [date, e] of briefingsByDate) {
+    const alts = e.langs.map((l) => `    <xhtml:link rel="alternate" hreflang="${l === 'zh' ? 'zh-CN' : 'en'}" href="${siteUrl}/${l}/briefing/${date}" />\n`).join('');
+    for (const l of e.langs) {
+      urls.push(entry(`${siteUrl}/${l}/briefing/${date}`, e.publishedAt ? new Date(e.publishedAt.replace(' ', 'T') + 'Z').toISOString().slice(0, 10) : undefined, e.langs.length > 1 ? alts : ''));
+    }
   }
 
   if (db) {

@@ -1,6 +1,6 @@
 // cache-bust: 20260704210321
 import { getRuntimeEnv } from './env';
-import type { AdminDraftGroup, Article, ArticleClaim, ArticleEntity, ArticleFaq, ArticleUpdate, Category, ContentGroup, FeedbackStatus, FeedbackSubmission, Language, PersonalResource, ResearchArtifacts, Source } from './types';
+import type { AdminDraftGroup, Article, ArticleClaim, ArticleEntity, ArticleFaq, ArticleUpdate, Briefing, Category, ContentGroup, FeedbackStatus, FeedbackSubmission, Language, PersonalResource, ResearchArtifacts, Source } from './types';
 
 // Thrown when the D1 binding is missing. The middleware converts this into a
 // 503 error page: a database outage must never be hidden by serving the
@@ -135,6 +135,134 @@ export async function listSitemapArticles(db: D1Database | undefined): Promise<S
     slug: String(row.slug ?? ''),
     publishedAt: row.published_at ? String(row.published_at) : null,
   }));
+}
+
+// --- Daily briefings --------------------------------------------------------
+// Reads tolerate a missing `briefings` table (it only exists after migration
+// 0006): the briefing strip, archive and detail pages must render an empty /
+// not-found state instead of 500ing on a database that predates the feature.
+export async function getBriefingByDate(db: D1Database | undefined, language: Language, date: string): Promise<Briefing | null> {
+  try {
+    requireDb(db);
+    const row = await db
+      .prepare("SELECT * FROM briefings WHERE language = ? AND date = ? AND status = 'published' LIMIT 1")
+      .bind(language, date)
+      .first<Record<string, unknown>>();
+    return row ? mapBriefing(row) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function listBriefings(db: D1Database | undefined, language: Language, limit = 30): Promise<Briefing[]> {
+  try {
+    requireDb(db);
+    const result = await db
+      .prepare("SELECT * FROM briefings WHERE language = ? AND status = 'published' ORDER BY date DESC LIMIT ?")
+      .bind(language, limit)
+      .all<Record<string, unknown>>();
+    return (result.results ?? []).map(mapBriefing);
+  } catch {
+    return [];
+  }
+}
+
+export async function getLatestBriefing(db: D1Database | undefined, language: Language): Promise<Briefing | null> {
+  try {
+    requireDb(db);
+    const row = await db
+      .prepare("SELECT * FROM briefings WHERE language = ? AND status = 'published' ORDER BY date DESC LIMIT 1")
+      .bind(language)
+      .first<Record<string, unknown>>();
+    return row ? mapBriefing(row) : null;
+  } catch {
+    return null;
+  }
+}
+
+export interface SitemapBriefing {
+  date: string;
+  language: Language;
+  publishedAt: string | null;
+}
+
+/** Every published briefing, both languages, for the sitemap. */
+export async function listSitemapBriefings(db: D1Database | undefined): Promise<SitemapBriefing[]> {
+  try {
+    requireDb(db);
+    const result = await db
+      .prepare("SELECT date, language, published_at FROM briefings WHERE status = 'published' ORDER BY date DESC LIMIT 1000")
+      .all<Record<string, unknown>>();
+    return (result.results ?? []).map((row) => ({
+      date: String(row.date),
+      language: row.language as Language,
+      publishedAt: row.published_at ? String(row.published_at) : null,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/** Insert or replace the published briefing for one (date, language). */
+export async function saveBriefing(db: D1Database, briefing: Omit<Briefing, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+  const id = `briefing-${briefing.date}-${briefing.language}`;
+  await db
+    .prepare(
+      `INSERT INTO briefings (id, date, language, title, overview, items_json, status, published_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'published', CURRENT_TIMESTAMP)
+       ON CONFLICT(date, language) DO UPDATE SET
+         title = excluded.title,
+         overview = excluded.overview,
+         items_json = excluded.items_json,
+         status = 'published',
+         updated_at = CURRENT_TIMESTAMP,
+         published_at = CURRENT_TIMESTAMP`,
+    )
+    .bind(id, briefing.date, briefing.language, briefing.title, briefing.overview, JSON.stringify(briefing.items))
+    .run();
+  return id;
+}
+
+function mapBriefing(row: Record<string, unknown>): Briefing {
+  return {
+    id: String(row.id),
+    date: String(row.date),
+    language: row.language as Language,
+    title: String(row.title),
+    overview: String(row.overview),
+    items: safeBriefingItems(row.items_json),
+    status: row.status as Briefing['status'],
+    createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at),
+    publishedAt: row.published_at ? String(row.published_at) : null,
+  };
+}
+
+function safeBriefingItems(value: unknown): Briefing['items'] {
+  try {
+    const parsed = JSON.parse(String(value ?? '[]'));
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((it) => it && typeof it.title === 'string')
+      .map((it, i) => ({
+        rank: Number(it.rank ?? i + 1),
+        title: String(it.title),
+        score: Number(it.score ?? 0),
+        summary: String(it.summary ?? ''),
+        whyItMatters: String(it.whyItMatters ?? ''),
+        sources: Array.isArray(it.sources)
+          ? it.sources.filter((s: unknown) => s && typeof (s as { url?: unknown }).url === 'string').map((s: { title?: unknown; publisher?: unknown; url: unknown }) => ({
+              title: String(s.title ?? ''),
+              publisher: String(s.publisher ?? ''),
+              url: String(s.url),
+            }))
+          : [],
+        articleSlug: typeof it.articleSlug === 'string' && it.articleSlug ? it.articleSlug : null,
+        articleCategory: typeof it.articleCategory === 'string' && it.articleCategory ? (it.articleCategory as Briefing['items'][number]['articleCategory']) : null,
+      }));
+  } catch {
+    return [];
+  }
 }
 
 export async function getArticleBySlug(db: D1Database | undefined, language: Language, slug: string): Promise<Article | null> {

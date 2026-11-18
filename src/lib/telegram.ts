@@ -7,6 +7,43 @@ function esc(s: string): string {
   return s.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 }
 
+/** Post the day's published briefing (Chinese version) to the Telegram channel. */
+export async function postBriefingToTelegram(env: AppEnv, date: string): Promise<{ sent: number; errors: string[] }> {
+  const out = { sent: 0, errors: [] as string[] };
+  const token = env.TELEGRAM_BOT_TOKEN;
+  if (!token || !env.DB) return out;
+  const chat = env.TELEGRAM_CHANNEL || '@acprelation';
+  let row: Record<string, string> | null = null;
+  try {
+    row = await env.DB
+      .prepare("SELECT title, overview FROM briefings WHERE date = ? AND language = 'zh' AND status = 'published' LIMIT 1")
+      .bind(date)
+      .first<Record<string, string>>();
+  } catch (e) {
+    out.errors.push(e instanceof Error ? e.message : String(e));
+    return out;
+  }
+  if (!row) {
+    out.errors.push(`No published zh briefing for ${date}.`);
+    return out;
+  }
+  const url = `${SITE}/zh/briefing/${date}?utm_source=telegram`;
+  const text = `<b>【今日简报】${esc(row.title)}</b>\n\n${esc(row.overview)}\n\n<a href="${url}">阅读简报 →</a>`;
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ chat_id: chat, text, parse_mode: 'HTML', link_preview_options: { url, prefer_large_media: true } }),
+    });
+    const data = (await res.json()) as { ok: boolean; description?: string };
+    if (data.ok) out.sent += 1;
+    else out.errors.push(data.description ?? `HTTP ${res.status}`);
+  } catch (e) {
+    out.errors.push(e instanceof Error ? e.message : String(e));
+  }
+  return out;
+}
+
 /** Post newly published content groups (Chinese version) to the Telegram channel. */
 export async function postPublishedToTelegram(env: AppEnv, groupIds: string[]): Promise<{ sent: number; errors: string[] }> {
   const out = { sent: 0, errors: [] as string[] };

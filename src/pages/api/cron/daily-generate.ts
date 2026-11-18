@@ -1,4 +1,5 @@
-import { postPublishedToTelegram } from '../../../lib/telegram';
+import { postBriefingToTelegram, postPublishedToTelegram } from '../../../lib/telegram';
+import { generateDailyBriefing } from '../../../lib/briefing';
 import { submitIndexNow, urlsForGroups } from '../../../lib/indexnow';
 import type { APIRoute } from 'astro';
 import { getRuntimeEnv } from '../../../lib/env';
@@ -68,6 +69,28 @@ export const GET: APIRoute = async ({ locals, url, request }) => {
         indexnow = { error: e instanceof Error ? e.message : String(e) };
       }
       return new Response(JSON.stringify({ review, telegram, indexnow }, null, 2), { headers: { 'content-type': 'application/json; charset=utf-8' } });
+    }
+    // briefing=1: generate + publish today's daily briefing, then post its link to Telegram.
+    // Fully isolated from step=1/publish=1: any failure returns JSON here and touches nothing else.
+    if (url.searchParams.get('briefing') === '1') {
+      try {
+        const force = url.searchParams.get('force') === '1';
+        const briefing = await generateDailyBriefing(runtimeEnv, { force });
+        let telegram: unknown = { sent: 0, errors: [] as string[] };
+        if (briefing.published) {
+          try {
+            telegram = await postBriefingToTelegram(runtimeEnv, briefing.date);
+          } catch (tgError) {
+            telegram = { sent: 0, errors: [tgError instanceof Error ? tgError.message : String(tgError)] };
+          }
+        }
+        return new Response(JSON.stringify({ briefing, telegram }, null, 2), { headers: { 'content-type': 'application/json; charset=utf-8' } });
+      } catch (error) {
+        return new Response(
+          JSON.stringify({ briefing: { ok: false, error: error instanceof Error ? error.message : String(error) } }, null, 2),
+          { status: 500, headers: { 'content-type': 'application/json; charset=utf-8' } },
+        );
+      }
     }
     // reviewOnly=1: skip generation and just run the auto-review (used after a batch).
     if (url.searchParams.get('reviewOnly') === '1') {

@@ -124,3 +124,35 @@ export interface AdminDraftGroup {
   articles: Article[];
   sources: Source[];
 }
+
+export interface BriefingSource {
+  title: string;
+  publisher: string;
+  url: string;
+}
+
+export interface BriefingItem {
+  rank: number;
+  title: string;
+  score: number;
+  summary: string;
+  whyItMatters: string;
+  sources: BriefingSource[];
+  /** Slug of the published article covering this story, if any (else null). */
+  articleSlug: string | null;
+  articleCategory: Category | null;
+}
+
+export interface Briefing {
+  id: string;
+  /** Asia/Shanghai calendar date (YYYY-MM-DD) the briefing covers. */
+  date: string;
+  language: Language;
+  title: string;
+  overview: string;
+  items: BriefingItem[];
+  status: 'draft' | 'published';
+  createdAt: string;
+  updatedAt: string;
+  publishedAt: string | null;
+}
