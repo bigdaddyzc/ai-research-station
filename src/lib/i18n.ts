@@ -25,7 +25,7 @@ export const ui = {
     scoreNote: 'Quality 与 Heat 由本站内容生产流程中的模型按 0–100 打分：Quality 看来源的可靠程度，Heat 看话题热度与新鲜度。只有至少引用 2 个来源的内容才能通过质量门槛发布。分数取不到有效值时会回落到 70（Heat）/ 75（Quality），所以分数整体偏高，仅供参考。',
     search: '搜索工具、概念、新闻、资源，例如：MCP、Gemini、AI Browser',
     admin: 'Admin',
-    reviewed: '人工审核后发布',
+    reviewed: '每篇附来源',
     bilingual: '中文/English 双语同步',
     readMore: '阅读全文',
     moreReviews: '更多评测',
@@ -42,7 +42,7 @@ export const ui = {
     appTitle: 'ACP APP 宣传页',
     appDesc: '原有APP宣传内容将保留为独立 /app 页面，并作为个人资源区的固定入口展示。',
     openApp: '打开 /app',
-    footer: 'ACP AI Research · AI辅助生成，站长审核后发布',
+    footer: 'ACP AI Research · AI 根据公开来源整理，自动评分筛选后发布',
   },
   en: {
     today: 'Today',
@@ -66,7 +66,7 @@ export const ui = {
     scoreNote: 'Quality and Heat are scored 0–100 by the model in this site’s editorial pipeline: Quality reflects source reliability, Heat reflects topic heat and recency. Only items citing at least 2 sources pass the quality gate. When no usable score is returned, the pipeline falls back to 70 (Heat) / 75 (Quality), so scores run high by design — treat them as a rough guide.',
     search: 'Search tools, concepts, news, and resources, such as MCP, Gemini, AI Browser',
     admin: 'Admin',
-    reviewed: 'Published after human review',
+    reviewed: 'Every post cites sources',
     bilingual: 'Chinese/English parity',
     readMore: 'Read more',
     moreReviews: 'More reviews',
@@ -83,7 +83,7 @@ export const ui = {
     appTitle: 'ACP App Page',
     appDesc: 'The original app promotion page remains available at /app and appears as a featured personal resource.',
     openApp: 'Open /app',
-    footer: 'ACP AI Research · AI-assisted, owner-reviewed before publication',
+    footer: 'ACP AI Research · AI-compiled from public sources, published after automated quality checks',
   },
 };
 

@@ -30,7 +30,7 @@ export const GET: APIRoute = async ({ locals }) => {
     '  <channel>\n' +
     '    <title>ACP AI Research</title>\n' +
     '    <link>' + siteUrl + '</link>\n' +
-    '    <description>Bilingual AI research and intelligence website. AI-assisted, owner-reviewed before publication.</description>\n' +
+    '    <description>Daily AI news, tools, research, free resources and prompt workflows, compiled by AI from cited sources. 每日 AI 新闻、工具、研究、资源与提示词。</description>\n' +
     '    <language>zh-CN, en</language>\n' +
     '    <lastBuildDate>' + new Date().toUTCString() + '</lastBuildDate>\n' +
     '    <atom:link href="' + siteUrl + '/rss.xml" rel="self" type="application/rss+xml" />\n' +

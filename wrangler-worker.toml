@@ -12,9 +12,11 @@ database_id = "9769d3ba-3081-49ad-bb28-01fb2002df6f"
 
 [vars]
 PUBLIC_SITE_URL = "https://acp.dpdns.org"
-AI_PROVIDER = "vertex-ai"
+AI_PROVIDER = "gemini-api"
+GEMINI_MODEL = "gemini-3.5-flash"
+AUTO_PUBLISH_DAILY_LIMIT = "5"
 GOOGLE_CLOUD_PROJECT = "direct-beacon-501110-u7"
 GOOGLE_CLOUD_LOCATION = "us-central1"
 
 [triggers]
-crons = ["0 0 * * *"]
+crons = ["*/5 0,1 * * *", "0 2 * * *"]
