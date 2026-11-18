@@ -145,7 +145,12 @@ const REQUIRED_PLATFORMS: SourcePlatform[] = ['social', 'code', 'blog'];
 // the model rated it reliable enough.
 const HIGH_CONFIDENCE_MIN = 70;
 // Categories that MUST include at least one high-confidence social/code/blog source.
-const HARD_DIVERSITY_CATEGORIES: Exclude<Category, 'personal'>[] = ['news', 'tools'];
+// (Emptied 2026-11-18: the hard gate failed deterministically — news went 9/9
+// with zero drafts on Nov 18 because the model kept citing mainstream news sites
+// (TechCrunch/The Verge, platform "web") and the gate rejected the whole fact pack.
+// Diversity is now a soft preference everywhere; the auto-review quality floors
+// (source quality >= 60) still guard publication.)
+const HARD_DIVERSITY_CATEGORIES: Exclude<Category, 'personal'>[] = [];
 
 // Known individual AI researcher / practitioner blogs. Editable allowlist — these
 // classify as `blog` even when hosted on github.io. Extend as needed.
