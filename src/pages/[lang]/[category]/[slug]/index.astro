@@ -1,9 +1,10 @@
 ---
 import BaseLayout from '../../../../layouts/BaseLayout.astro';
+import ArticleCard from '../../../../components/ArticleCard.astro';
 import PromptDetail from '../../../../components/PromptDetail.astro';
-import { getArticleBySlug, getDb, listArticles, getResearchArtifactsForArticle, getSourcesForGroup } from '../../../../lib/db';
-import { renderMarkdown } from '../../../../lib/markdown';
-import { categoryLabels, ui, type UiLanguage } from '../../../../lib/i18n';
+import { getArticleBySlug, getDb, getResearchArtifactsForArticle, getSourcesForGroup, listArticles } from '../../../../lib/db';
+import { renderMarkdown, stripMarkdown } from '../../../../lib/markdown';
+import { categoryLabels, isCategoryLabel, ui, type UiLanguage } from '../../../../lib/i18n';
 import type { Category } from '../../../../lib/types';
 
 const lang = Astro.params.lang as UiLanguage;
@@ -24,10 +25,10 @@ if (!article || article.category !== category) {
 
 const sources = await getSourcesForGroup(db, article.contentGroupId);
 const researchArtifacts = await getResearchArtifactsForArticle(db, article.id);
+const sameCategory = category === 'prompts' ? [] : (await listArticles(db, lang, { category, limit: 6 })).filter((item) => item.id !== article.id);
+const recommended = sameCategory.slice(0, 5);
+const related = sameCategory.slice(0, 3);
 const t = ui[lang];
-const sameCategory = (await listArticles(db, lang, { category: article.category, limit: 8 })).filter((item) => item.slug !== article.slug);
-const otherRecent = (await listArticles(db, lang, { limit: 12 })).filter((item) => item.slug !== article.slug && item.category !== article.category);
-const relatedArticles = [...sameCategory.slice(0, 4), ...otherRecent.slice(0, 2)];
 const html = renderMarkdown(article.contentMarkdown);
 const formatDate = (value: string | null) => {
   if (!value) return lang === 'zh' ? '未标注' : 'Not specified';
@@ -38,9 +39,8 @@ const formatDate = (value: string | null) => {
     : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 const canonicalUrl = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin).toString();
-const pageTitle = article.seoTitle ?? article.title;
-const pageDescription = article.seoDescription ?? article.summary;
-const modifiedAt = researchArtifacts.updates[0]?.createdAt ?? article.publishedAt;
+const pageTitle = article.title;
+const pageDescription = article.seoDescription ?? stripMarkdown(article.summary);
 const articleJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Article',
@@ -50,9 +50,8 @@ const articleJsonLd = {
   datePublished: article.publishedAt ?? undefined,
   dateModified: researchArtifacts.updates[0]?.createdAt ?? article.publishedAt ?? undefined,
   mainEntityOfPage: canonicalUrl,
-  author: { '@type': 'Organization', name: lang === 'zh' ? 'ACP AI 编辑部' : 'ACP AI Research Editors', url: `https://acp.dpdns.org/${lang}/about` },
-  publisher: { '@type': 'Organization', name: 'ACP AI Research', url: 'https://acp.dpdns.org', logo: { '@type': 'ImageObject', url: 'https://acp.dpdns.org/og-default.png' } },
-  image: 'https://acp.dpdns.org/og-default.png',
+  author: { '@type': 'Organization', name: 'ACP AI Research' },
+  publisher: { '@type': 'Organization', name: 'ACP AI Research' },
   about: researchArtifacts.entities.map((entity) => entity.entityName),
   citation: sources.map((source) => source.url),
 };
@@ -83,24 +82,19 @@ const breadcrumbJsonLd = {
     {category === 'prompts' ? (
       <PromptDetail article={article} sources={sources} lang={lang} />
     ) : (
+    <>
     <section class="shell article-grid">
       <article class="article-panel">
         <div class="lead-meta">
-          <span class="tag teal">{categoryLabels[lang][article.category]}</span>
-          <span class="tag amber" title={lang === 'zh' ? '话题热度（0-100）' : 'Topic heat (0-100)'}>{lang === 'zh' ? '热度' : 'Heat'} {article.heatScore}</span>
-          <span class="tag blue" title={lang === 'zh' ? '来源可信度（0-100）' : 'Source reliability (0-100)'}>{lang === 'zh' ? '可信度' : 'Reliability'} {article.sourceQualityScore}</span>
+          <span class="tag-cat">{categoryLabels[lang][article.category]}</span>
+          <span class={article.heatScore > 80 ? 'tag-score hot' : 'tag-score'}>Heat {article.heatScore}</span>
+          <span class="tag-score">Quality {article.sourceQualityScore}</span>
         </div>
         <h1>{article.title}</h1>
-        <p class="byline notice">{lang === 'zh' ? 'ACP AI 编辑部' : 'ACP AI Research Editors'} · {lang === 'zh' ? '发布' : 'Published'} {formatDate(article.publishedAt)}{modifiedAt && modifiedAt !== article.publishedAt ? ` · ${lang === 'zh' ? '更新' : 'Updated'} ${formatDate(modifiedAt)}` : ''} · {lang === 'zh' ? `约 ${article.readingTime ?? 4} 分钟读完` : `${article.readingTime ?? 4} min read`}</p>
-        {article.status === 'archived' && (
-          <p class="archived-note">{lang === 'zh' ? '这篇内容已超出本栏目的时效期，信息可能已过时，仅供参考。' : 'This article is past its freshness window for this section and may be out of date.'}</p>
-        )}
-        <div class="answer-box">
-          <strong>{lang === 'zh' ? '一句话结论' : 'Quick answer'}</strong>
-          <p class="summary">{article.summary}</p>
-        </div>
+        <p class="article-meta">ACP AI Research · {lang === 'zh' ? '人工审核' : 'Human-reviewed'} · {lang === 'zh' ? `约 ${article.readingTime} 分钟阅读` : `~${article.readingTime} min read`}</p>
+        <p class="summary">{stripMarkdown(article.summary)}</p>
         <div class="lead-meta">
-          {article.tags.map((tag) => <span class="tag">{tag}</span>)}
+          {article.tags.filter((tag) => !isCategoryLabel(tag, article.category)).map((tag) => <span class="tag">{tag}</span>)}
         </div>
         {researchArtifacts.claims.length > 0 && (
           <section class="research-block key-claims" aria-label={lang === 'zh' ? '核心结论' : 'Key claims'}>
@@ -110,8 +104,8 @@ const breadcrumbJsonLd = {
                 <li>
                   <p>{claim.claimText}</p>
                   <div class="lead-meta compact-meta">
-                    <span class="tag blue">{claim.claimType}</span>
-                    <span class="tag amber">{claim.confidence}</span>
+                    <span class="tag-score">{claim.claimType}</span>
+                    <span class="tag-score">{claim.confidence}</span>
                   </div>
                 </li>
               ))}
@@ -130,23 +124,29 @@ const breadcrumbJsonLd = {
             ))}
           </section>
         )}
-        <aside class="tg-cta" aria-label="Telegram">
-          <p>{lang === 'zh' ? '每天新文章第一时间推送到 Telegram 频道，不错过 AI 新闻和工具更新。' : 'Get every new article the moment it is published on our Telegram channel.'}</p>
-          <a class="pill-btn tg-btn" href="https://t.me/acprelation" target="_blank" rel="noopener">{lang === 'zh' ? '订阅 @acprelation' : 'Join @acprelation'}</a>
-        </aside>
       </article>
       <aside class="sidebar">
         <div class="sidebar-box">
           <h2>{lang === 'zh' ? '发布信息' : 'Publish Info'}</h2>
           <p class="notice">{article.status === 'published' ? t.published : t.pendingReview}</p>
-          <p class="notice">{lang === 'zh' ? '发布日期' : 'Published'}: {formatDate(article.publishedAt)}</p>
+          <p class="notice">{lang === 'zh' ? '发布日期' : 'Published'}: <span class="nowrap">{formatDate(article.publishedAt)}</span></p>
         </div>
+        {recommended.length > 0 && (
+          <div class="sidebar-box">
+            <h2>{lang === 'zh' ? '同栏目推荐' : 'More in this section'}</h2>
+            <ul>
+              {recommended.map((item) => (
+                <li><a href={`/${lang}/${item.category}/${item.slug}`}>{item.title}</a></li>
+              ))}
+            </ul>
+          </div>
+        )}
         {researchArtifacts.updates.length > 0 && (
           <div class="sidebar-box">
             <h2>{lang === 'zh' ? '更新记录' : 'Updates'}</h2>
             <ul>
               {researchArtifacts.updates.slice(0, 5).map((update) => (
-                <li><p class="notice">{formatDate(update.createdAt)} · {update.updateNote}</p></li>
+                <li><p class="notice"><span class="nowrap">{formatDate(update.createdAt)}</span> · {update.updateNote}</p></li>
               ))}
             </ul>
           </div>
@@ -168,7 +168,7 @@ const breadcrumbJsonLd = {
               <li>
                 <a href={source.url} target="_blank" rel="noreferrer">{source.title}</a>
                 <p class="notice">
-                  {source.publisher ?? 'Unknown'} · {lang === 'zh' ? '发表' : 'Published'}: {formatDate(source.publishedAt)} · {lang === 'zh' ? '抓取' : 'Retrieved'}: {formatDate(source.retrievedAt)}
+                  {source.publisher ?? 'Unknown'} · {lang === 'zh' ? '发表' : 'Published'}: <span class="nowrap">{formatDate(source.publishedAt)}</span> · {lang === 'zh' ? '抓取' : 'Retrieved'}: <span class="nowrap">{formatDate(source.retrievedAt)}</span>
                 </p>
               </li>
             ))}
@@ -176,24 +176,24 @@ const breadcrumbJsonLd = {
         </div>
         <div class="sidebar-box">
           <h2>{lang === 'zh' ? 'AI 辅助声明' : 'AI Notice'}</h2>
-          <p class="notice">{lang === 'zh' ? '本文由 AI 根据所列来源自动整理，经来源数量、时效和质量自动评分筛选后发布，未经逐篇人工审核。如发现错误，欢迎通过首页“提交建议”反馈。' : 'This article is compiled by AI from the listed sources and published after automated checks on source count, freshness and quality. It is not individually human-reviewed. Spotted an error? Send feedback from the homepage.'}</p>
+          <p class="notice">{lang === 'zh' ? '本文由 AI 辅助生成，发布前由站长审核来源、事实和措辞。' : 'This article is AI-assisted and reviewed by the site owner before publication.'}</p>
         </div>
       </aside>
     </section>
-    )}
-    {relatedArticles.length > 0 && (
-      <section class="shell related-articles" aria-label={lang === 'zh' ? '相关文章' : 'Related articles'}>
-        <h2>{lang === 'zh' ? '相关文章' : 'Related Articles'}</h2>
-        <ul>
-          {relatedArticles.map((item) => (
-            <li>
-              <a href={`/${lang}/${item.category}/${item.slug}`}>{item.title}</a>
-              <span class="tag">{categoryLabels[lang][item.category]}</span>
-            </li>
-          ))}
-        </ul>
-        <p class="notice"><a href={`/${lang}/${article.category}`}>{lang === 'zh' ? `查看更多${categoryLabels[lang][article.category]}` : `More ${categoryLabels[lang][article.category]}`} →</a></p>
+    {related.length > 0 && (
+      <section class="shell related">
+        <div class="blk-head">
+          <div>
+            <h2>{lang === 'zh' ? '相关文章' : 'Related articles'}</h2>
+          </div>
+          <a class="more" href={`/${lang}/${category}`}>{lang === 'zh' ? '查看全部' : 'View all'} →</a>
+        </div>
+        <div class="cards">
+          {related.map((item) => <ArticleCard article={item} lang={lang} />)}
+        </div>
       </section>
+    )}
+    </>
     )}
   </main>
 </BaseLayout>

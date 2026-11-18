@@ -684,7 +684,7 @@ Return only valid JSON using this exact shape:
       "language": "zh",
       "title": "Chinese title",
       "slug": "lowercase-kebab-case-topic",
-      "summary": "2 sentence Chinese summary",
+      "summary": "2 sentence Chinese summary that opens with the key fact or conclusion (never with a date phrase such as '截至 2026年11月')",
       "contentMarkdown": "Full Markdown article with sections: ${categoryConfig.zhSections.join(', ')}. Do not copy source paragraphs verbatim.",
       "tags": ["AI", "..."],
       "readingTime": 4,
@@ -695,7 +695,7 @@ Return only valid JSON using this exact shape:
       "language": "en",
       "title": "English title",
       "slug": "lowercase-kebab-case-topic",
-      "summary": "2 sentence English summary",
+      "summary": "2 sentence English summary that opens with the key fact or conclusion (never with a date phrase such as 'As of November 2026')",
       "contentMarkdown": "Full Markdown article with sections: ${categoryConfig.enSections.join(', ')}. Do not copy source paragraphs verbatim.",
       "tags": ["AI", "..."],
       "readingTime": 4,
@@ -708,6 +708,7 @@ Return only valid JSON using this exact shape:
 Rules:
 - Preserve the facts and source URLs from the fact pack.
 - Preserve each source publishedAt date from the fact pack.
+- Summaries: open with the key fact or conclusion, never with a date phrase such as "截至 2026年11月" / "As of November 2026"; vary the opening sentence across articles so summaries do not read templated; put the most important information first; keep to 2 sentences.
 - The Sources/参考来源 section MUST cite ONLY the fact-pack sources above, in the same order, with the same publishedAt dates. Never add a new source, URL, publisher, or date that is not in the fact pack — in particular do NOT cite the original research paper, official repository, or any other primary source unless it is already in the fact pack.
 - Every inline citation [1], [2], ... must map to exactly one fact-pack source; never use a number higher than the fact-pack source count, and never cite a source whose publishedAt is before ${oldestAllowedDate} (sources older than ${getFreshnessWindow(category).label} are not allowed in this category).
 - Mention source publisher and publication date in the final Sources/参考来源 section.

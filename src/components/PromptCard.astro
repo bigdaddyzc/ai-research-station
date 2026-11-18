@@ -1,8 +1,9 @@
 ---
-import { ArrowRight, Boxes, Copy, Workflow } from 'lucide-astro';
+import { Boxes, Copy, Workflow } from 'lucide-astro';
 import { getPromptArtifact } from '../lib/prompt-artifact';
+import { stripMarkdown } from '../lib/markdown';
+import { displayTag, ui, type UiLanguage } from '../lib/i18n';
 import type { Article } from '../lib/types';
-import type { UiLanguage } from '../lib/i18n';
 
 interface Props {
   article: Article;
@@ -16,6 +17,10 @@ const isWorkflow = artifact.kind === 'workflow';
 const kindLabel = isWorkflow
   ? (lang === 'zh' ? '工作流' : 'Workflow')
   : (lang === 'zh' ? '提示词' : 'Prompt');
+const tags = article.tags
+  .map((tag) => displayTag(tag, lang))
+  .filter((tag, index, arr) => arr.indexOf(tag) === index && tag !== kindLabel)
+  .slice(0, 4);
 const metric = isWorkflow && artifact.stepCount > 0
   ? `${artifact.stepCount} ${lang === 'zh' ? '步' : 'steps'}`
   : `${article.readingTime} ${lang === 'zh' ? '分钟' : 'min'}`;
@@ -31,25 +36,24 @@ const metric = isWorkflow && artifact.stepCount > 0
       {isWorkflow ? <Workflow size={15} strokeWidth={2} /> : <Copy size={15} strokeWidth={2} />}
       {kindLabel}
     </span>
-    <span class="quality-score" title={lang === 'zh' ? '来源质量评分' : 'Source quality score'}>
-      {article.sourceQualityScore}
+    <span class="tag-score" title={lang === 'zh' ? '来源质量评分' : 'Source quality score'}>
+      Quality {article.sourceQualityScore}
     </span>
   </div>
 
   <div class="prompt-card-copy">
     <h2><a href={href}>{article.title}</a></h2>
-    <p>{article.summary}</p>
+    <p>{stripMarkdown(article.summary)}</p>
   </div>
 
   <div class="prompt-card-tags">
-    {article.tags.slice(0, 4).map((tag) => <span class="tag">{tag}</span>)}
+    {tags.map((tag) => <span class="tag">{tag}</span>)}
   </div>
 
   <div class="prompt-card-foot">
     <span><Boxes size={15} strokeWidth={2} /> {metric}</span>
-    <a href={href} aria-label={`${lang === 'zh' ? '打开' : 'Open'} ${article.title}`}>
-      {lang === 'zh' ? '查看' : 'Open'}
-      <ArrowRight size={16} strokeWidth={2} />
+    <a class="go" href={href} aria-label={`${lang === 'zh' ? '打开' : 'Open'} ${article.title}`}>
+      {ui[lang].readMore} →
     </a>
   </div>
 </article>

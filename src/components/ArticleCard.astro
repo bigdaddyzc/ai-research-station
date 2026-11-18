@@ -1,29 +1,43 @@
 ---
-import type { Article } from '../lib/types';
-import { categoryLabels, ui, type UiLanguage } from '../lib/i18n';
+import type { Article, Source } from '../lib/types';
+import { categoryLabels, isCategoryLabel, ui, type UiLanguage } from '../lib/i18n';
+import { stripMarkdown } from '../lib/markdown';
 
 interface Props {
   article: Article;
   lang: UiLanguage;
+  /** Primary (most reliable) source; when omitted the source line is hidden. */
+  source?: Source;
 }
 
-const { article, lang } = Astro.props;
+const { article, lang, source } = Astro.props;
 const t = ui[lang];
 const href = `/${lang}/${article.category}/${article.slug}`;
-const statusText = article.status === 'published' ? t.published : article.status === 'needs_review' ? t.pendingReview : t.draft;
+const categoryLabel = categoryLabels[lang][article.category];
+const tags = article.tags.filter((tag) => !isCategoryLabel(tag, article.category)).slice(0, 3);
+const formatDate = (value: string | null) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return lang === 'zh'
+    ? date.toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai', month: 'numeric', day: 'numeric' })
+    : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
 ---
 <article class="card">
-  <div class="card-head">
-    <span class="tag teal">{categoryLabels[lang][article.category]}</span>
-    <span class="rating">{(article.sourceQualityScore / 10).toFixed(1)}</span>
+  <div class="top">
+    <span class="tag-cat">{categoryLabel}</span>
+    <span class="tag-score">Quality {article.sourceQualityScore}</span>
+    <span class={article.heatScore > 80 ? 'tag-score hot' : 'tag-score'}>Heat {article.heatScore}</span>
+    <time>{formatDate(article.publishedAt)}</time>
   </div>
   <h3><a href={href}>{article.title}</a></h3>
-  <p>{article.summary}</p>
+  <p>{stripMarkdown(article.summary)}</p>
+  {source && (
+    <div class="src">{t.source}：<a href={source.url} target="_blank" rel="noopener noreferrer">{source.publisher ?? source.title}</a></div>
+  )}
   <div class="lead-meta">
-    {article.tags.slice(0, 3).map((tag) => <span class="tag">{tag}</span>)}
+    {tags.map((tag) => <span class="tag">{tag}</span>)}
   </div>
-  <div class="card-foot">
-    <span>{article.tags.length > 0 ? article.tags[0] : ''}</span>
-    <span>{statusText}</span>
-  </div>
+  <a class="go" href={href}>{t.readMore} →</a>
 </article>

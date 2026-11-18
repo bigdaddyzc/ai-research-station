@@ -33,7 +33,8 @@ export function renderMarkdown(markdown: string): string {
     }
   };
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const trimmed = line.trim();
 
     if (trimmed.startsWith('```')) {
@@ -116,6 +117,38 @@ export function renderMarkdown(markdown: string): string {
       continue;
     }
 
+    // GFM table: header row + separator row (| --- | --- |) + data rows.
+    // Only treated as a table when the next line is a valid separator row
+    // with the same number of cells; otherwise the line stays a paragraph.
+    const headerCells = parseTableRow(trimmed);
+    if (headerCells && i + 1 < lines.length) {
+      const separatorCells = parseTableRow(lines[i + 1].trim());
+      if (separatorCells && separatorCells.length === headerCells.length && isSeparatorRow(separatorCells)) {
+        flushParagraph();
+        closeAllLists();
+        const rows: string[][] = [];
+        let j = i + 2;
+        while (j < lines.length) {
+          const rowCells = parseTableRow(lines[j].trim());
+          if (!rowCells) break;
+          rows.push(rowCells);
+          j++;
+        }
+        const normalize = (cells: string[]): string[] => {
+          const out = cells.slice(0, headerCells.length);
+          while (out.length < headerCells.length) out.push('');
+          return out;
+        };
+        html.push(`<div class="table-scroll"><table><thead><tr>${headerCells.map((c) => `<th>${inlineFormat(shortenHeader(c))}</th>`).join('')}</tr></thead><tbody>`);
+        for (const row of rows) {
+          html.push(`<tr>${normalize(row).map((c) => `<td>${inlineFormat(c)}</td>`).join('')}</tr>`);
+        }
+        html.push('</tbody></table></div>');
+        i = j - 1;
+        continue;
+      }
+    }
+
     paragraph.push(trimmed);
   }
 
@@ -124,6 +157,46 @@ export function renderMarkdown(markdown: string): string {
   closeAllLists();
   if (codeBlock) html.push(`<pre><code>${escapeHtml(codeBlock.join('\n'))}</code></pre>`);
   return html.join('\n');
+}
+
+function parseTableRow(line: string): string[] | null {
+  const trimmed = line.trim();
+  if (!trimmed.includes('|')) return null;
+  const cells = trimmed.split('|').map((c) => c.trim());
+  if (cells[0] === '') cells.shift();
+  if (cells.length > 0 && cells[cells.length - 1] === '') cells.pop();
+  if (cells.length === 0) return null;
+  return cells;
+}
+
+function isSeparatorRow(cells: string[]): boolean {
+  return cells.length > 0 && cells.every((c) => /^:?-+:?$/.test(c));
+}
+
+/** Shorten the known long pricing-table headers so columns don't crush. */
+const SHORT_HEADERS: Record<string, string> = {
+  '比较维度': '维度',
+  '开放权重模型平均价格': '开源模型均价',
+  '闭源私有模型参考价格': '闭源模型参考价',
+  '策略控制后缀': '策略后缀',
+  '对应支持 API 结构': '支持 API',
+};
+
+function shortenHeader(cell: string): string {
+  return SHORT_HEADERS[cell.trim()] ?? cell;
+}
+
+/** Strip Markdown syntax to plain text (for summaries shown in cards/feeds). */
+export function stripMarkdown(text: string): string {
+  let s = text;
+  s = s.replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1');
+  s = s.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1');
+  s = s.replace(/`{1,3}([^`]+)`{1,3}/g, '$1');
+  s = s.replace(/\*\*([^*]+)\*\*/g, '$1');
+  s = s.replace(/(?<!\w)\*([^*]+)\*(?!\w)/g, '$1');
+  s = s.replace(/^#{1,6}\s+/gm, '');
+  s = s.replace(/\s+/g, ' ').trim();
+  return s;
 }
 
 function inlineFormat(text: string): string {
