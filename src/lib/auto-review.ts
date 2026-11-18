@@ -15,7 +15,7 @@ import { publishContentGroup, rejectContentGroup, unpublishContentGroup } from '
  *  - passes the existing publish validation (source count, source dates, slug conflicts)
  *
  * Ranking score (0-100):
- *  45% source quality + 30% heat + 15% avg source reliability + 10% share of grounding-verified sources.
+ *  35% source quality + 40% heat + 15% avg source reliability + 10% share of grounding-verified sources.
  * Selection prefers one article per category before filling remaining slots by score.
  */
 

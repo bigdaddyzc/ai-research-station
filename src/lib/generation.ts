@@ -7,7 +7,7 @@ import {
   type VertexAIConfig,
 } from './vertex-ai';
 import type { AppEnv } from './env';
-import { fetchCandidateSources } from './feeds';
+import { fetchRankedStories } from './feeds';
 import type { Category, Language } from './types';
 
 export interface GenerationResult {
@@ -63,6 +63,8 @@ type GeneratedDraft = {
   sourceQualityScore: number;
   articles: GeneratedArticle[];
   sources: GeneratedSource[];
+  /** Top-10 ranked stories (title + score) at selection time, for the audit trail. */
+  storyRanking?: string;
 };
 
 type FactPack = {
@@ -74,6 +76,8 @@ type FactPack = {
   sources?: GeneratedSource[];
   keyFacts?: string[];
   cautions?: string[];
+  /** Top-10 ranked stories (title + score) at selection time, for the audit trail. */
+  storyRanking?: string;
 };
 
 type CategoryConfig = {
@@ -455,7 +459,9 @@ async function generateDraft(config: VertexAIConfig, category: Exclude<Category,
     draft.sources = finalSources;
     draft.articles = draft.articles.map((a) => rebuildReferences(a, finalSources));
   }
-  return normalizeDraft(draft, category);
+  const normalized = normalizeDraft(draft, category);
+  normalized.storyRanking = facts.storyRanking;
+  return normalized;
 }
 
 function isHomepageUrl(raw: string): boolean {
@@ -584,16 +590,17 @@ async function generateFactPack(config: VertexAIConfig, category: Exclude<Catego
     ? `- MANDATORY source mix: at least ONE source MUST be a high-credibility primary source that Google Search actually returns, from ONE of these: an X/Twitter or Reddit post (e.g. r/MachineLearning, r/LocalLLaMA), a GitHub or Hugging Face repo/release page, OR a well-known individual AI researcher's blog (e.g. Simon Willison, Lilian Weng, Sebastian Raschka, Andrej Karpathy, Chip Huyen). It must be real and currently accessible. Do NOT fabricate this URL.`
     : `- STRONGLY PREFER to also include at least one primary source from X/Twitter or Reddit, GitHub or Hugging Face, or a well-known individual AI researcher's blog, alongside news outlets.`;
   let candidateBlock = '';
+  let storyRanking = '';
   if (config.apiKey) {
     const oldest = windowDays ? new Date(Date.now() - windowDays * 86_400_000) : getOldestAllowedSourceDate(category);
-    const candidates = (await fetchCandidateSources(category, oldest, 60))
-      .filter((c) => !usedUrls.has(normalizeSourceUrl(c.url)))
-      .slice(0, 25);
-    if (candidates.length === 0) {
+    const stories = await fetchRankedStories(category, oldest, 15, usedUrls);
+    if (stories.length === 0) {
       throw new Error(`No fresh, uncovered candidate sources found in feeds for ${category}.`);
     }
-    candidateBlock = `\nFRESH CANDIDATE SOURCES (pulled from RSS feeds today; pick ONE topic from these, open the chosen URLs with the URL context tool to read them, and cite ONLY URLs you actually read — these and links inside them):\n${candidates
-      .map((c, i) => `${i + 1}. [${c.publishedAt}] ${c.title} — ${c.url}`)
+    const topStories = stories.slice(0, 10);
+    storyRanking = topStories.map((s) => `${s.representative.title} (${s.score})`).join('; ');
+    candidateBlock = `\nFRESH CANDIDATE STORIES (ranked by importance score out of 100 — recency + independent-source coverage + official-announcement weight + engagement; each story is ONE topic no matter how many articles cover it. Pick ONE story, open its URLs with the URL context tool to read them, and cite ONLY URLs you actually read):\n${topStories
+      .map((s, i) => `${i + 1}. [score ${s.score}] ${s.representative.title} — ${s.items.length} article(s) from ${s.sourceLabels.join(', ')}, latest ${s.latest.slice(0, 10)} ${s.latest.slice(11, 16)} UTC\n${s.items.map((it) => `   - ${it.url}`).join('\n')}`)
       .join('\n')}\n`;
   }
   const prompt = `${config.apiKey ? 'Use the URL context tool to read real, current sources' : 'Use Google Search to find current real information'} for ACP AI Research.
@@ -625,6 +632,7 @@ Return compact JSON only with this shape:
 Topic selection (SEARCH DEMAND FIRST, AI ONLY):
 - The topic MUST be about AI (models, AI products/tools, AI research, AI resources, prompts). A famous company is only a plus when the story is about its AI product or AI business; never pick a non-AI story just because it is popular.
 - Pick the candidate that the most ordinary people will actually SEARCH for in the next 2 weeks, not the most technically interesting one. Strong signals: a well-known product or company name people type into search (ChatGPT, Claude, Gemini, DeepSeek, Kimi, Qwen, Doubao, Cursor, Copilot, Midjourney, Sora, Apple Intelligence, NVIDIA AI chips, etc.), a new release/price change/free tier/outage of such a product, or a practical question ("how to use", "is it free", "X vs Y", "available in China", "how much does it cost").
+- Prefer higher-scored stories: the [score N] next to each story already weighs recency, independent-source coverage, official announcements, and engagement — only skip a higher-scored story for a clearly better search-demand reason.
 - Avoid niche repos, minor library versions, obscure papers, and one-person blog experiments unless they are already trending widely.
 - heatScore means expected search interest: 90+ only for topics many people will search (major product launch, price change, free offer, outage); 50-70 for developer-only interest; below 50 for niche.
 - primaryKeyword must be a short phrase real users would search (e.g. "Gemini 4 价格" / "Gemini 4 pricing"), containing the product or brand name.
@@ -653,6 +661,7 @@ ${diversityRule}
       // social/code/blog source; soft categories only log.
       facts.sources = await refillSources(config, category, facts, usedUrls);
       enforceSourceDiversity(facts.sources, category);
+      if (storyRanking) facts.storyRanking = storyRanking;
       return facts;
     } catch (error) {
       lastError = error;
@@ -1105,7 +1114,7 @@ async function saveDraft(db: D1Database, draft: GeneratedDraft): Promise<string>
     ),
     db
       .prepare("INSERT INTO generation_jobs (id, job_type, status, started_at, finished_at, model_provider, model_name, input_summary, created_content_group_ids_json) VALUES (?, 'daily_generate', 'completed', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'vertex-ai', ?, ?, ?)")
-      .bind(`job-${canonicalSlug}`, getModelForCategory(draft.category as Exclude<Category, 'personal'>), `Generated draft for ${draft.canonicalSlug} [${draft.category}]`, JSON.stringify([contentGroupId])),
+      .bind(`job-${canonicalSlug}`, getModelForCategory(draft.category as Exclude<Category, 'personal'>), `Generated draft for ${draft.canonicalSlug} [${draft.category}]${draft.storyRanking ? ` | Top stories: ${draft.storyRanking.slice(0, 500)}` : ''}`, JSON.stringify([contentGroupId])),
   ];
 
   await db.batch(statements);
