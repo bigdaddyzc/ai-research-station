@@ -42,10 +42,16 @@ const FEEDS: Record<Exclude<Category, 'personal'>, string[]> = {
     'https://hnrss.org/newest?q=AI+OR+LLM+OR+OpenAI+OR+Anthropic+OR+Gemini&points=100',
     'https://techcrunch.com/category/artificial-intelligence/feed/',
     'https://www.theverge.com/rss/ai-artificial-intelligence/index.xml',
+    // MIT Technology Review AI (added 2026-11-18): established press, a
+    // third mainstream outlet alongside TechCrunch/The Verge.
+    'https://www.technologyreview.com/topic/artificial-intelligence/feed/',
     // Official OpenAI announcements (added 2026-11-18): major model releases
     // previously had only one entry point (a single blog post) and could be
     // crowded out of the candidate list entirely.
     'https://openai.com/news/rss.xml',
+    // Google AI Blog (added 2026-11-18): vendor announcements from Google;
+    // the old /technology/ai/rss/ URL redirects here.
+    'https://blog.google/innovation-and-ai/technology/ai/rss/',
     'https://www.reddit.com/r/LocalLLaMA/top/.rss?t=day',
     'https://simonwillison.net/atom/everything/',
   ],
@@ -63,6 +69,9 @@ const FEEDS: Record<Exclude<Category, 'personal'>, string[]> = {
     'https://github.blog/ai-and-ml/feed/',
   ],
   research: [
+    // arXiv cs.AI (added 2026-11-18): primary-source papers; the only feed
+    // in the pool that surfaces papers directly.
+    'https://export.arxiv.org/rss/cs.AI',
     'https://huggingface.co/blog/feed.xml',
     'https://www.interconnects.ai/feed',
     'https://magazine.sebastianraschka.com/feed',
@@ -81,9 +90,11 @@ const FEEDS: Record<Exclude<Category, 'personal'>, string[]> = {
 const AUTHORITY: Record<FeedType, number> = { official: 30, mainstream: 18, social: 18, blog: 12 };
 
 function feedType(feed: string): FeedType {
-  if (feed.includes('openai.com') || feed.includes('github.blog') || feed.includes('huggingface.co')) return 'official';
+  // 'official' = vendor announcements + primary-source repositories (arXiv
+  // papers are primary sources, graded official for the research category).
+  if (feed.includes('openai.com') || feed.includes('github.blog') || feed.includes('huggingface.co') || feed.includes('blog.google') || feed.includes('arxiv.org')) return 'official';
   if (feed.includes('hnrss.org') || feed.includes('reddit.com')) return 'social';
-  if (feed.includes('techcrunch.com') || feed.includes('theverge.com')) return 'mainstream';
+  if (feed.includes('techcrunch.com') || feed.includes('theverge.com') || feed.includes('technologyreview.com')) return 'mainstream';
   return 'blog';
 }
 
@@ -92,6 +103,9 @@ export function feedLabel(feed: string): string {
   if (feed.includes('techcrunch.com')) return 'TechCrunch';
   if (feed.includes('theverge.com')) return 'The Verge';
   if (feed.includes('openai.com')) return 'OpenAI';
+  if (feed.includes('technologyreview.com')) return 'MIT Tech Review';
+  if (feed.includes('blog.google')) return 'Google AI Blog';
+  if (feed.includes('arxiv.org')) return 'arXiv';
   if (feed.includes('reddit.com')) return 'Reddit';
   if (feed.includes('simonwillison.net')) return 'Simon Willison';
   if (feed.includes('huggingface.co')) return 'Hugging Face';
@@ -146,8 +160,13 @@ function parseFeed(xml: string, feed: string): FeedItem[] {
     const item: FeedItem = { title: title.slice(0, 200), url, publishedAt: new Date(ms).toISOString(), feed };
     // HN points, when the feed reports them ("123 points by ..."): the only
     // free engagement signal in the pipeline; used for the story score.
-    const pointsMatch = pick(block, 'description').match(/(\d+)\s+points?/i);
-    if (pointsMatch) item.points = Number(pointsMatch[1]);
+    // HN-only on purpose: other feeds' descriptions can mention "N points"
+    // as benchmark scores (arXiv abstracts do this routinely — 22 of 319
+    // items in one fetch), which would inflate engagement by mistake.
+    if (feed.includes('hnrss.org')) {
+      const pointsMatch = pick(block, 'description').match(/(\d+)\s+points?/i);
+      if (pointsMatch) item.points = Number(pointsMatch[1]);
+    }
     items.push(item);
   }
   return items;
@@ -165,11 +184,22 @@ export async function fetchCandidateSources(category: Exclude<Category, 'persona
     }),
   );
   const seen = new Set<string>();
+  // Per-feed cap (added 2026-11-18 with the arXiv source): a single prolific
+  // feed must not flood the pool. arXiv cs.AI alone returns ~300 items from
+  // the last day; without a cap the research pool's 60 newest items would be
+  // almost all arXiv papers and crowd out every other source — the same
+  // starvation that hid GPT-6.2 on 2026-11-17/18. Feeds list newest first,
+  // so the cap keeps each feed's 10 newest items.
+  const perFeed = new Map<string, number>();
+  const PER_FEED_CAP = 10;
   const items: FeedItem[] = [];
   for (const r of results) {
     if (r.status !== 'fulfilled') continue;
     for (const item of r.value) {
       if (seen.has(item.url) || new Date(item.publishedAt) < oldestAllowed) continue;
+      const n = perFeed.get(item.feed) ?? 0;
+      if (n >= PER_FEED_CAP) continue;
+      perFeed.set(item.feed, n + 1);
       seen.add(item.url);
       items.push(item);
     }
