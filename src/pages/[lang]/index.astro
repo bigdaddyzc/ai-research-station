@@ -31,6 +31,11 @@ const newsPool = await listArticles(db, lang, { category: 'news', limit: 10 });
 const feedNews = newsPool.filter(notLead).slice(0, 7);
 const news = newsPool.filter(notLead).slice(7, 10);
 const personal = await listPersonalResources(db, lang);
+// Novels live apart from the main personal cards, as plain links — they are
+// personal recommendations, not site content, and used to sit at full card
+// weight next to the Fold app.
+const personalMain = personal.filter((resource) => resource.resourceType !== 'novel');
+const personalNovels = personal.filter((resource) => resource.resourceType === 'novel');
 const leadCategoryLabel = lead ? categoryLabels[lang][lead.category as keyof typeof categoryLabels['zh']] : '';
 const leadTags = (lead?.tags ?? []).filter((tag) => !isCategoryLabel(tag, lead?.category ?? '')).slice(0, 3);
 // All sources per displayed article, one query (most reliable first).
@@ -279,7 +284,7 @@ const sectionZh: Record<string, string> = {
           <a class="more" href={`/${lang}/personal`}>{t.manageResources} →</a>
         </div>
         <div class="cards">
-          {personal.map((resource) => (
+          {personalMain.map((resource) => (
             <article class="card">
               <div class="top"><span class="tag-cat">{t.personal}</span></div>
               <h3><a href={resource.url} target={resource.url.startsWith('/') ? undefined : '_blank'} rel={resource.url.startsWith('/') ? undefined : 'noopener noreferrer'}>{resource.title}</a></h3>
@@ -288,6 +293,14 @@ const sectionZh: Record<string, string> = {
             </article>
           ))}
         </div>
+        {personalNovels.length > 0 && (
+          <div class="personal-novels">
+            <span class="personal-novels-label">{lang === 'zh' ? '小说推荐' : 'Novel recommendations'}</span>
+            {personalNovels.map((resource) => (
+              <a href={resource.url} target="_blank" rel="noopener noreferrer">{resource.title}</a>
+            ))}
+          </div>
+        )}
       </section>
 
       <section class="blk feedback-blk" id="feedback">
