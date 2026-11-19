@@ -1,0 +1,40 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="页面不存在 · ACP AI Research Station"
+  description="你要找的页面不存在或已被移动。试试站内搜索，或回到首页。"
+  lang="zh"
+>
+  <main class="shell not-found">
+    <div class="page-head">
+      <span class="eyebrow">404 / NOT FOUND</span>
+      <h1>这个页面不存在</h1>
+      <p>链接可能输错了，或者内容已被移动、删除。试试站内搜索，或直接回到首页。</p>
+    </div>
+    <form class="notfound-search" action="/zh/" method="get">
+      <div class="searchbox">
+        <span class="search-icon">⌕</span>
+        <input type="text" class="search-input" name="q" placeholder="搜索全站文章，例如：GPT-6.2" />
+      </div>
+      <button class="pill-btn primary" type="submit">搜索</button>
+    </form>
+    <div class="notfound-links">
+      <a class="pill-btn primary" href="/zh">回到首页</a>
+      <a class="pill-btn" href="/zh/news">新闻</a>
+      <a class="pill-btn" href="/zh/tools">工具</a>
+      <a class="pill-btn" href="/zh/briefing">每日简报</a>
+      <a class="pill-btn" href="/en">English home</a>
+    </div>
+    <p class="notfound-en">This page doesn&rsquo;t exist or has moved. Try the search above, or head back home.</p>
+  </main>
+</BaseLayout>
+
+<style>
+  .not-found { max-width: 860px; padding-top: 72px; padding-bottom: 72px; }
+  .notfound-search { display: flex; gap: 10px; margin-top: 28px; }
+  .notfound-search .searchbox { flex: 1; min-width: 0; }
+  .notfound-links { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 24px; }
+  .notfound-en { margin-top: 28px; font-size: 14px; color: var(--muted); }
+</style>

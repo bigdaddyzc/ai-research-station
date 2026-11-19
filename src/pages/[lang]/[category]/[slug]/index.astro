@@ -13,7 +13,7 @@ const slug = Astro.params.slug ?? '';
 const validCategories: Category[] = ['tools', 'news', 'resources', 'research', 'prompts', 'personal'];
 
 if ((lang !== 'zh' && lang !== 'en') || !validCategories.includes(category)) {
-  return new Response('Not Found', { status: 404 });
+  return Astro.rewrite('/404');
 }
 
 const db = await getDb(Astro.locals);

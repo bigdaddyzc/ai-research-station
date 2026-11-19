@@ -10,7 +10,7 @@ import type { Article } from '../../lib/types';
 
 const lang = Astro.params.lang as UiLanguage;
 if (lang !== 'zh' && lang !== 'en') {
-  return new Response('Not Found', { status: 404 });
+  return Astro.rewrite('/404');
 }
 
 const t = ui[lang];
@@ -100,11 +100,11 @@ const sectionZh: Record<string, string> = {
         <div class="hero-meta">
           {lang === 'zh' ? (
             <>
-              <span>最新 {allArticles.length} 篇</span><span>6 个栏目</span><span>EN / 中文双语</span><span>每日更新</span><span>平均可信度 {avgQuality}</span>
+              <span>最新 {shown.length} 篇</span><span>6 个栏目</span><span>EN / 中文双语</span><span>每日更新</span><span>平均可信度 {avgQuality}</span>
             </>
           ) : (
             <>
-              <span>Latest {allArticles.length} articles</span><span>6 sections</span><span>EN / 中文</span><span>Updated daily</span><span>Avg. quality {avgQuality}</span>
+              <span>Latest {shown.length} articles</span><span>6 sections</span><span>EN / 中文</span><span>Updated daily</span><span>Avg. quality {avgQuality}</span>
             </>
           )}
         </div>
@@ -175,7 +175,7 @@ const sectionZh: Record<string, string> = {
         <div class="win-foot">
           <span>{lang === 'zh' ? '数据来自本站 · 每日更新' : 'Live data · updated daily'}</span>
           <a href={`/${lang}/news`}>{t.newsArchive} →</a>
-          <span class="r">{allArticles.length} ITEMS</span>
+          <span class="r">{feedNews.length} ITEMS</span>
         </div>
       </div>
     </section>
@@ -187,6 +187,7 @@ const sectionZh: Record<string, string> = {
           <input type="text" class="search-input" placeholder={t.search} id="searchInput" />
         </div>
       </div>
+      <div class="search-results" id="searchResults" hidden></div>
     </div>
 
     <section class="shell sections">
@@ -311,37 +312,80 @@ const sectionZh: Record<string, string> = {
       </section>
     </section>
   </main>
-  <script>
+  <script define:vars={{ lang, noResults: t.searchNoResults, archiveLabel: t.newsArchive, archiveHref: `/${lang}/news` }}>
     const input = document.getElementById('searchInput');
-    if (input) {
-      const sections = document.querySelectorAll('.sections section.blk:not(.feedback-blk)');
-      const windowZone = document.querySelector('.window-zone');
-      const allCards = document.querySelectorAll('.sections .card, .sections .feed-row, .window .feed-row');
+    const panel = document.getElementById('searchResults');
+    const pageSections = document.querySelectorAll('.window-zone, .sections');
+    let indexPromise = null;
 
-      input.addEventListener('input', () => {
-        const query = (input as HTMLInputElement).value.trim().toLowerCase();
-        if (!query) {
-          allCards.forEach(card => (card as HTMLElement).style.display = '');
-          sections.forEach(section => (section as HTMLElement).style.display = '');
-          if (windowZone) (windowZone as HTMLElement).style.display = '';
-          return;
-        }
-        allCards.forEach(card => {
-          const text = card.textContent?.toLowerCase() ?? '';
-          (card as HTMLElement).style.display = text.includes(query) ? '' : 'none';
-        });
-        sections.forEach(section => {
-          const visibleChildren = section.querySelectorAll('.card:not([style*="display: none"]), .feed-row:not([style*="display: none"])');
-          (section as HTMLElement).style.display = visibleChildren.length > 0 ? '' : 'none';
-        });
-        if (windowZone) {
-          const visibleFeed = windowZone.querySelectorAll('.feed-row:not([style*="display: none"])');
-          (windowZone as HTMLElement).style.display = visibleFeed.length > 0 ? '' : 'none';
-        }
+    function esc(s) {
+      return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function loadIndex() {
+      if (!indexPromise) {
+        indexPromise = fetch('/search-index-' + lang + '.json')
+          .then(function (r) { if (!r.ok) throw new Error('index ' + r.status); return r.json(); })
+          .then(function (data) { return Array.isArray(data) ? data : (data.items || []); })
+          .catch(function () { indexPromise = null; return []; });
+      }
+      return indexPromise;
+    }
+    function setSearching(active) {
+      pageSections.forEach(function (el) { el.style.display = active ? 'none' : ''; });
+      if (panel) panel.hidden = !active;
+    }
+    function renderResults(items, query) {
+      if (!panel) return;
+      if (items.length === 0) {
+        panel.innerHTML = '<p class="search-empty">' + esc(noResults) + '「' + esc(query) + '」。<a href="' + esc(archiveHref) + '">' + esc(archiveLabel) + ' →</a></p>';
+        return;
+      }
+      panel.innerHTML = '<div class="feed">' + items.map(function (item) {
+        return '<a class="feed-row" href="' + esc(item.u) + '">'
+          + '<span class="cat">' + esc(String(item.c || '').toUpperCase()) + '</span>'
+          + '<span class="t"><span class="ttl">' + esc(item.t) + '</span>'
+          + (item.s ? '<span class="dsc">' + esc(item.s) + '</span>' : '')
+          + '</span>'
+          + (item.d ? '<time>' + esc(item.d) + '</time>' : '')
+          + '<span class="arr">→</span></a>';
+      }).join('') + '</div>';
+    }
+    function runSearch() {
+      if (!input || !panel) return;
+      const query = input.value.trim().toLowerCase();
+      if (!query) { setSearching(false); panel.innerHTML = ''; return; }
+      setSearching(true);
+      const tokens = query.split(/\s+/).filter(Boolean);
+      loadIndex().then(function (items) {
+        if (input.value.trim().toLowerCase() !== query) return;
+        const hits = items.filter(function (item) {
+          const hay = ((item.t || '') + ' ' + (item.s || '') + ' ' + (item.c || '')).toLowerCase();
+          return tokens.every(function (tok) { return hay.indexOf(tok) !== -1; });
+        }).slice(0, 12);
+        renderResults(hits, input.value.trim());
       });
+    }
+    if (input) {
+      let timer = null;
+      input.addEventListener('input', function () {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(runSearch, 150);
+      });
+      // Coming from the 404 page (or any link) with ?q= : run the search on load.
+      const preset = new URLSearchParams(window.location.search).get('q');
+      if (preset) {
+        input.value = preset;
+        runSearch();
+        document.getElementById('search').scrollIntoView();
+      }
     }
   </script>
   <style>
     .brief-strip .brief-rank { flex: none; width: 26px; height: 26px; border-radius: 7px; background: var(--accent); color: #fff; font-family: var(--mono); font-size: 13px; font-weight: 600; line-height: 26px; text-align: center; align-self: center; }
+    .search-results { margin-top: 14px; }
+    .search-results[hidden] { display: none; }
+    .search-results .feed-row .t .dsc { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+    .search-empty { padding: 18px 10px; font-size: 14px; color: var(--body); }
+    .search-empty a { color: var(--text); text-decoration: underline; text-underline-offset: 2px; }
   </style>
 </BaseLayout>

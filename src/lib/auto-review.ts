@@ -24,9 +24,11 @@ const MIN_SOURCE_QUALITY = 60;
 const MIN_ZH_BODY_CHARS = 600;
 const MIN_EN_BODY_CHARS = 1200;
 const MAX_AGE_HOURS = 48;
-/** prompts/workflow articles draw little attention: publish only clearly important ones, at most 1 per 7 days. */
-const PROMPTS_MIN_HEAT = 90;
-const PROMPTS_MIN_SCORE = 85;
+/** prompts/workflow articles draw little attention: publish only clearly worthwhile ones, at most 1 per 7 days.
+    The bar is aligned with the site's Heat floor (>= 70): the model scores prompt drafts at heat 65-88,
+    so the old heat >= 90 bar stalled the whole category (last published prompt was Nov 3, 2026). */
+const PROMPTS_MIN_HEAT = 70;
+const PROMPTS_MIN_SCORE = 80;
 
 type Candidate = {
   id: string;

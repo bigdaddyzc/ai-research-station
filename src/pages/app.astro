@@ -58,6 +58,7 @@ p,.fine { color: var(--muted); line-height: 1.65; }
   font-family: var(--font-body); font-size: 15px; font-weight: 600; text-decoration: none; white-space: nowrap;
 }
 .btn-primary { background: linear-gradient(180deg,#f2cc8f,var(--accent)); color: #34240e; box-shadow: 0 16px 36px rgba(233,183,112,0.24); font-weight: 800; }
+.btn[disabled] { opacity: .55; cursor: not-allowed; box-shadow: none; }
 .btn-secondary { background: var(--surface); border: 1px solid var(--border); color: var(--fg); }
 .section { padding: clamp(40px,8vh,80px) 0; }
 .section-header { text-align: center; margin-bottom: 40px; }
@@ -84,6 +85,8 @@ p,.fine { color: var(--muted); line-height: 1.65; }
 .download-section { text-align: center; padding-bottom: clamp(50px,10vh,100px); }
 .download-section .cta-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: clamp(24px,4vw,40px); display: inline-block; min-width: min(100%,400px); }
 .version { color: var(--faint); font-size: 12px; margin-bottom: 20px; }
+.dl-note { margin-top: 16px; }
+.dl-note a { color: var(--fg); }
 .footer { border-top: 1px solid var(--border); padding: 28px 22px; text-align: center; }
 .footer .links { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin-bottom: 12px; }
 .footer a { color: var(--faint); text-decoration: none; font-size: 13px; }
@@ -106,7 +109,7 @@ p,.fine { color: var(--muted); line-height: 1.65; }
     <h1>封存烦恼，留下星光</h1>
     <p class="sub">睡前写下今晚的烦恼，Fold 帮你封存。第二天早晨拆信，正文销毁，只留一颗星和一句回音。</p>
     <div class="actions">
-      <a href="/assets/fold.apk" class="btn btn-primary">下载 APK</a>
+      <button class="btn btn-primary" type="button" disabled>APK 即将推出</button>
       <a href="#how" class="btn btn-secondary">了解更多</a>
     </div>
   </section>
@@ -161,16 +164,17 @@ p,.fine { color: var(--muted); line-height: 1.65; }
       <h2>今晚就开始</h2>
     </div>
     <div class="cta-card">
-      <p class="version">v1.0.0 · Android 6.0+</p>
-      <a href="/assets/fold.apk" class="btn btn-primary">下载 Fold APK</a>
+      <p class="version">v1.0.0 · APK 正在准备中</p>
+      <button class="btn btn-primary" type="button" disabled>APK 即将推出</button>
+      <p class="fine dl-note">APK 完成后会在这里提供下载。想第一时间试用，可以到 <a href="/zh#feedback">ACP 研究站</a> 留个言。</p>
     </div>
   </section>
 
   <footer class="footer">
     <div class="links">
-      <a href="/privacy">隐私政策</a>
-      <a href="/terms">服务条款</a>
-      <a href="mailto:yanz82297@gmail.com">联系我们</a>
+      <a href="/app/privacy">隐私政策</a>
+      <a href="/app/terms">服务条款</a>
+      <a href="/zh#feedback">联系我们</a>
     </div>
     <p class="copy">&copy; 2026 Fold · 周超</p>
   </footer>

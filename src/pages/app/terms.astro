@@ -1,0 +1,67 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="Fold · 服务条款"
+  description="Fold 服务条款：说明产品边界、订阅、AI、通知和使用限制。"
+  lang="zh"
+>
+  <main class="shell legal-wrap">
+    <a class="pill-btn legal-back" href="/app">返回首页</a>
+    <div class="page-head">
+      <span class="eyebrow">FOLD / TERMS</span>
+      <h1>服务条款</h1>
+      <p>生效日期：2026-06-24</p>
+    </div>
+
+    <section class="legal-body">
+      <div class="legal-card">
+        <h2>产品定位</h2>
+        <p>Fold 是睡前情绪卸载工具，不是医疗、心理治疗、危机干预或专业咨询服务。它不会诊断、治疗或替代专业帮助。遇到紧急危险时，请联系当地急救、警方或合格专业人士。</p>
+      </div>
+
+      <div class="legal-card">
+        <h2>使用方式</h2>
+        <p>你需要对自己输入的内容和使用行为负责。请勿使用 Fold 存储违法内容、他人隐私、长期医疗记录、账户密码或其他需要长期保留的敏感资料。</p>
+      </div>
+
+      <div class="legal-card">
+        <h2>AI 与回音</h2>
+        <p>本地或远程 AI 结果仅用于产品体验，可能不准确。回音是温和文本，不构成建议、诊断、治疗方案或风险评估。远程 AI 不保证持续可用。</p>
+      </div>
+
+      <div class="legal-card">
+        <h2>Pro 订阅</h2>
+        <p>Pro 解锁完整星空、长期趋势、情绪天气、来源地图和重量曲线。价格、试用、续订、取消和退款以应用商店页面为准。恢复购买会通过 RevenueCat 和应用商店账户检查有效 entitlement。</p>
+      </div>
+
+      <div class="legal-card">
+        <h2>通知可靠性</h2>
+        <p>Fold 会尽量使用系统能力发送提醒，但通知可能受权限、精确闹钟设置、省电策略、系统更新、重启和厂商限制影响。通知不是保证送达的服务承诺。</p>
+      </div>
+
+      <div class="legal-card">
+        <h2>可用性与变更</h2>
+        <p>Fold 可能调整功能、价格、AI 提供方、订阅权益或发布方式。重大隐私或订阅变化应在应用或发布页面中说明。</p>
+      </div>
+
+      <div class="legal-card">
+        <h2>联系我们</h2>
+        <p>运营者：周超<br />如有问题，请通过 <a href="/zh#feedback">ACP 研究站反馈表单</a>联系我们。<br />如因使用本产品产生争议，适用中华人民共和国法律。</p>
+      </div>
+    </section>
+  </main>
+</BaseLayout>
+
+<style>
+  .legal-wrap { max-width: 860px; padding-bottom: 56px; }
+  .legal-back { margin-top: 24px; }
+  .legal-body { display: grid; gap: 14px; padding-top: 28px; }
+  .legal-card { border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px; background: var(--panel); }
+  .legal-card h2 { margin: 0 0 8px; font-size: 18px; line-height: 1.4; }
+  .legal-card p { margin: 0; color: var(--body); font-size: 14px; line-height: 1.7; }
+  .legal-card p + p { margin-top: 8px; }
+  .legal-card a { color: var(--text); text-decoration: underline; text-underline-offset: 2px; }
+  .legal-fine { margin-top: 8px; font-size: 13px; color: var(--muted); }
+</style>

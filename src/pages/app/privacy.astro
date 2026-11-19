@@ -1,0 +1,69 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="Fold · 隐私政策"
+  description="Fold 隐私政策：说明正文、情绪元数据、订阅和通知数据如何处理。"
+  lang="zh"
+>
+  <main class="shell legal-wrap">
+    <a class="pill-btn legal-back" href="/app">返回首页</a>
+    <div class="page-head">
+      <span class="eyebrow">FOLD / PRIVACY</span>
+      <h1>隐私政策</h1>
+      <p>生效日期：2026-06-24</p>
+    </div>
+
+    <section class="legal-body">
+      <div class="legal-card legal-banner">
+        <h2>Fold 的核心承诺</h2>
+        <p>烦恼正文只为当次封存和拆信流程服务。拆信后，正文会从安全存储删除；长期留下的是情绪颜色、主题、重量变化、日期、星星和回音。</p>
+      </div>
+
+      <div class="legal-card">
+        <h2>我们处理哪些数据</h2>
+        <p>你主动输入的烦恼正文会临时保存在设备安全存储中。情绪元数据包括情绪类别、主题、重量、日期、星星位置、回音、收藏状态和设置。个人称呼仅保存在本机，用于界面个性化。</p>
+      </div>
+
+      <div class="legal-card">
+        <h2>正文如何保存和删除</h2>
+        <p>Android 版本通过系统 Keystore 保护正文。浏览器预览没有原生安全存储时，会退化到当前会话存储。拆信时，Fold 会先删除正文，再写入星星和回音元数据。请不要把 Fold 当作长期日记或保存工具。</p>
+      </div>
+
+      <div class="legal-card">
+        <h2>情绪分析</h2>
+        <p>所有情绪分析均在本地完成，使用关键词匹配和预设模板，不发送任何数据到外部服务器。</p>
+      </div>
+
+      <div class="legal-card">
+        <h2>通知</h2>
+        <p>睡前和晨间提醒在设备本地调度，不涉及网络通信。</p>
+      </div>
+
+      <div class="legal-card">
+        <h2>删除与控制</h2>
+        <p>你可以在 App 中删除本机数据或关闭通知。卸载 App 会移除本机保存的所有数据。</p>
+      </div>
+
+      <div class="legal-card">
+        <h2>联系我们</h2>
+        <p>如有隐私相关问题，请通过 <a href="/zh#feedback">ACP 研究站反馈表单</a>联系我们。</p>
+        <p class="legal-fine">开发者：周超</p>
+      </div>
+    </section>
+  </main>
+</BaseLayout>
+
+<style>
+  .legal-wrap { max-width: 860px; padding-bottom: 56px; }
+  .legal-back { margin-top: 24px; }
+  .legal-body { display: grid; gap: 14px; padding-top: 28px; }
+  .legal-card { border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px; background: var(--panel); }
+  .legal-card h2 { margin: 0 0 8px; font-size: 18px; line-height: 1.4; }
+  .legal-card p { margin: 0; color: var(--body); font-size: 14px; line-height: 1.7; }
+  .legal-card p + p { margin-top: 8px; }
+  .legal-card a { color: var(--text); text-decoration: underline; text-underline-offset: 2px; }
+  .legal-banner { border-left: 3px solid var(--accent); }
+  .legal-fine { margin-top: 8px; font-size: 13px; color: var(--muted); }
+</style>

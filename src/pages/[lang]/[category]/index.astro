@@ -12,7 +12,7 @@ const category = Astro.params.category as Category;
 const validCategories: Category[] = ['tools', 'news', 'resources', 'research', 'prompts', 'personal'];
 
 if ((lang !== 'zh' && lang !== 'en') || !validCategories.includes(category)) {
-  return new Response('Not Found', { status: 404 });
+  return Astro.rewrite('/404');
 }
 
 const t = ui[lang];
