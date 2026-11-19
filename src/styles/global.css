@@ -709,6 +709,10 @@ section.blk.feedback-blk { padding-top: 56px; }
 
 /* article cards */
 .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 34px; }
+.personal-novels { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; font-size: 13px; }
+.personal-novels-label { color: var(--muted); font-weight: 600; }
+.personal-novels a { color: var(--body); text-decoration: none; }
+.personal-novels a:hover { color: var(--text); text-decoration: underline; }
 .cards-3 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 34px; }
 
 .card {

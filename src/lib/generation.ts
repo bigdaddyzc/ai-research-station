@@ -698,7 +698,7 @@ Return only valid JSON using this exact shape:
       "language": "zh",
       "title": "Chinese title",
       "slug": "lowercase-kebab-case-topic",
-      "summary": "2 sentence Chinese summary that opens with the key fact or conclusion (never with a date phrase such as '截至 2026年11月')",
+      "summary": "2 sentence Chinese summary, at most 90 characters, that opens with the key fact or conclusion (never start with, or include, a date phrase such as '截至 2026年11月')",
       "contentMarkdown": "Full Markdown article with sections: ${categoryConfig.zhSections.join(', ')}. Do not copy source paragraphs verbatim.",
       "tags": ["AI", "..."],
       "readingTime": 4,
@@ -709,7 +709,7 @@ Return only valid JSON using this exact shape:
       "language": "en",
       "title": "English title",
       "slug": "lowercase-kebab-case-topic",
-      "summary": "2 sentence English summary that opens with the key fact or conclusion (never with a date phrase such as 'As of November 2026')",
+      "summary": "2 sentence English summary, at most 30 words, that opens with the key fact or conclusion (never start with, or include, a date phrase such as 'As of November 2026')",
       "contentMarkdown": "Full Markdown article with sections: ${categoryConfig.enSections.join(', ')}. Do not copy source paragraphs verbatim.",
       "tags": ["AI", "..."],
       "readingTime": 4,
@@ -722,7 +722,7 @@ Return only valid JSON using this exact shape:
 Rules:
 - Preserve the facts and source URLs from the fact pack.
 - Preserve each source publishedAt date from the fact pack.
-- Summaries: open with the key fact or conclusion, never with a date phrase such as "截至 2026年11月" / "As of November 2026"; vary the opening sentence across articles so summaries do not read templated; put the most important information first; keep to 2 sentences.
+- Summaries: open with the key fact or conclusion; never start with, or include, a date phrase such as "截至 2026年11月" / "As of November 2026" anywhere in the summary; vary the opening sentence across articles so summaries do not read templated; put the most important information first; keep to 2 sentences and at most 90 Chinese characters / 30 English words.
 - The Sources/参考来源 section MUST cite ONLY the fact-pack sources above, in the same order, with the same publishedAt dates. Never add a new source, URL, publisher, or date that is not in the fact pack — in particular do NOT cite the original research paper, official repository, or any other primary source unless it is already in the fact pack.
 - Every inline citation [1], [2], ... must map to exactly one fact-pack source; never use a number higher than the fact-pack source count, and never cite a source whose publishedAt is before ${oldestAllowedDate} (sources older than ${getFreshnessWindow(category).label} are not allowed in this category).
 - Mention source publisher and publication date in the final Sources/参考来源 section.
@@ -731,7 +731,7 @@ Rules:
 - Answer first: the first paragraph of each article must directly answer "what happened / what is it, and why it matters to an AI developer or user" in 1-2 sentences (40-80 Chinese characters / 30-60 English words) so search engines and AI assistants can quote it.
 - Add original value beyond the sources: a practical takeaway, who should care, what to do next, or a comparison with alternatives. Never just paraphrase the source.
 - Where the topic has comparable items, numbers, prices, limits, versions or steps, include one compact Markdown table (header row, separator row, then rows). Keep tables to at most 5 columns.
-- Use concrete, quotable facts: exact numbers with units, version names, and dates written as "截至 YYYY年M月" / "As of Month YYYY".
+- Use concrete, quotable facts: exact numbers with units, version names, and dates written as "截至 YYYY年M月" / "As of Month YYYY" (in the article body only — never in the summary).
 - Where natural, phrase section headings as the question a reader would search (e.g. "### 它是什么？", "### How do I use it?").
 - summary must be a self-contained 1-2 sentence answer, not a teaser.
 - seoTitle should contain the main keyword people would search, not a clever headline.
