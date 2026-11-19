@@ -84,7 +84,11 @@ async function listArticlesUncached(db: D1Database | undefined, language: Langua
 
   if (status === 'published') {
     filters.push("COALESCE(g.published_at, g.created_at) >= CASE WHEN g.category = 'news' THEN date('now', '-7 days') WHEN g.category = 'resources' THEN date('now', '-4 months') WHEN g.category = 'prompts' THEN date('now', '-3 months') ELSE date('now', '-6 months') END");
-    filters.push("(SELECT COUNT(*) FROM sources s WHERE s.content_group_id = g.id) >= 2");
+    // News articles may publish with a single source (generation allows
+    // minSources=1 for news), so the display floor must match: news >= 1,
+    // every other category >= 2. Otherwise a published news article is
+    // invisible on the homepage.
+    filters.push("(SELECT COUNT(*) FROM sources s WHERE s.content_group_id = g.id) >= CASE WHEN g.category = 'news' THEN 1 ELSE 2 END");
     filters.push("NOT EXISTS (SELECT 1 FROM sources s WHERE s.content_group_id = g.id AND (s.published_at IS NULL OR s.published_at = '' OR s.published_at < CASE WHEN g.category = 'news' THEN date('now', '-7 days') WHEN g.category = 'resources' THEN date('now', '-4 months') WHEN g.category = 'prompts' THEN date('now', '-3 months') ELSE date('now', '-6 months') END))");
   }
 
