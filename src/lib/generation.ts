@@ -1012,7 +1012,9 @@ function normalizeDraft(draft: GeneratedDraft, requestedCategory: Exclude<Catego
   if (!hasZh || !hasEn) {
     throw new Error('Generated draft must include both zh and en articles.');
   }
-  const minSources = category === 'news' ? 1 : 2;
+  // All categories follow the news standard (2026-11-19): a single source is
+  // enough to publish, so single-source stories no longer die at generation.
+  const minSources = 1;
   if (sources.length < minSources) {
     throw new Error(`Generated draft must include at least ${minSources} source(s).`);
   }
