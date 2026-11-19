@@ -8,9 +8,12 @@ interface Props {
   lang: UiLanguage;
   /** Primary (most reliable) source; when omitted the source line is hidden. */
   source?: Source;
+  /** All sources, most reliable first; when given, the card lists all of them. */
+  sources?: Source[];
 }
 
-const { article, lang, source } = Astro.props;
+const { article, lang, source, sources } = Astro.props;
+const shownSources = sources && sources.length > 0 ? sources : source ? [source] : [];
 const t = ui[lang];
 const href = `/${lang}/${article.category}/${article.slug}`;
 const categoryLabel = categoryLabels[lang][article.category];
@@ -33,8 +36,8 @@ const formatDate = (value: string | null) => {
   </div>
   <h3><a href={href}>{article.title}</a></h3>
   <p>{stripMarkdown(article.summary)}</p>
-  {source && (
-    <div class="src">{t.source}：<a href={source.url} target="_blank" rel="noopener noreferrer">{source.publisher ?? source.title}</a></div>
+  {shownSources.length > 0 && (
+    <div class="src">{t.source}：{shownSources.map((s, i) => (<><a href={s.url} target="_blank" rel="noopener noreferrer">{s.publisher ?? s.title}</a>{i < shownSources.length - 1 ? '、' : ''}</>))}</div>
   )}
   <div class="lead-meta">
     {tags.map((tag) => <span class="tag">{tag}</span>)}

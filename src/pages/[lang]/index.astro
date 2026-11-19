@@ -1,7 +1,7 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import ArticleCard from '../../components/ArticleCard.astro';
-import { getDb, listArticles, listPersonalResources, getPrimarySources, getBriefingByDate } from '../../lib/db';
+import { getDb, listArticles, listPersonalResources, getAllSources, getBriefingByDate } from '../../lib/db';
 import { briefingDate } from '../../lib/briefing';
 import { pickLeadArticle } from '../../lib/lead';
 import { stripMarkdown } from '../../lib/markdown';
@@ -16,7 +16,8 @@ if (lang !== 'zh' && lang !== 'en') {
 const t = ui[lang];
 const db = await getDb(Astro.locals);
 const allArticles = await listArticles(db, lang, { limit: 40 }); // headroom above the 24 displayed slots so dedupe never starves a section
-const lead = pickLeadArticle(allArticles);
+const todayBriefing = await getBriefingByDate(db, lang, briefingDate());
+const lead = pickLeadArticle(allArticles, new Date(), todayBriefing?.items?.[0]?.articleSlug ?? null);
 // Every slot on the page shows content not seen elsewhere: the hero lead is
 // excluded from every list, and the News section shows the news items AFTER
 // the 7-row latest feed window (items 8-10).
@@ -32,17 +33,15 @@ const news = newsPool.filter(notLead).slice(7, 10);
 const personal = await listPersonalResources(db, lang);
 const leadCategoryLabel = lead ? categoryLabels[lang][lead.category as keyof typeof categoryLabels['zh']] : '';
 const leadTags = (lead?.tags ?? []).filter((tag) => !isCategoryLabel(tag, lead?.category ?? '')).slice(0, 3);
-// Primary (most reliable) source per displayed article, one query.
+// All sources per displayed article, one query (most reliable first).
 const shown = [lead, ...feedNews, ...news, ...tools, ...resources, ...research, ...prompts].filter((a): a is Article => Boolean(a));
-const primarySources = await getPrimarySources(db, [...new Set(shown.map((a) => a.contentGroupId))]);
-const leadSource = lead ? primarySources.get(lead.contentGroupId) : undefined;
+const allSources = await getAllSources(db, [...new Set(shown.map((a) => a.contentGroupId))]);
+const leadSources = lead ? allSources.get(lead.contentGroupId) : undefined;
 const now = new Date();
-const todayBriefing = await getBriefingByDate(db, lang, briefingDate());
 const feedbackSent = Astro.url.searchParams.get('feedback') === 'sent';
 const todayText = lang === 'zh'
   ? `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`
   : now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-const avgQuality = Math.round(allArticles.reduce((sum, item) => sum + item.sourceQualityScore, 0) / Math.max(allArticles.length, 1));
 const formatDate = (value: string | null) => {
   if (!value) return '';
   const date = new Date(value);
@@ -86,8 +85,8 @@ const sectionZh: Record<string, string> = {
           <span class={lead && lead.heatScore > 80 ? 'tag-score hot' : 'tag-score'}>Heat {lead?.heatScore ?? 0}</span>
           {leadTags.map((tag) => <span class="tag">{tag}</span>)}
         </div>
-        {leadSource && (
-          <p class="hero-src">{t.source}：<a href={leadSource.url} target="_blank" rel="noopener noreferrer">{leadSource.publisher ?? leadSource.title}</a></p>
+        {leadSources && leadSources.length > 0 && (
+          <p class="hero-src">{t.source}：{leadSources.map((s, i) => (<><a href={s.url} target="_blank" rel="noopener noreferrer">{s.publisher ?? s.title}</a>{i < leadSources.length - 1 ? '、' : ''}</>))}</p>
         )}
         <details class="score-note">
           <summary>{t.scoreHow}</summary>
@@ -100,11 +99,11 @@ const sectionZh: Record<string, string> = {
         <div class="hero-meta">
           {lang === 'zh' ? (
             <>
-              <span>最新 {shown.length} 篇</span><span>6 个栏目</span><span>EN / 中文双语</span><span>每日更新</span><span>平均可信度 {avgQuality}</span>
+              <span>最新 {shown.length} 篇</span><span>6 个栏目</span><span>EN / 中文双语</span><span>每日更新</span>
             </>
           ) : (
             <>
-              <span>Latest {shown.length} articles</span><span>6 sections</span><span>EN / 中文</span><span>Updated daily</span><span>Avg. quality {avgQuality}</span>
+              <span>Latest {shown.length} articles</span><span>6 sections</span><span>EN / 中文</span><span>Updated daily</span>
             </>
           )}
         </div>
@@ -122,14 +121,14 @@ const sectionZh: Record<string, string> = {
           <a class="more" href={`/${lang}/briefing/${todayBriefing.date}`}>{t.readBriefing} →</a>
         </div>
         <div class="feed">
-          {todayBriefing.items.slice(0, 5).map((item) => (
+          {todayBriefing.items.filter((item) => item.articleSlug !== lead?.slug).slice(0, 5).map((item, i) => (
             <a class="feed-row" href={`/${lang}/briefing/${todayBriefing.date}`}>
-              <span class="brief-rank">{item.rank}</span>
+              <span class="brief-rank">{i + 1}</span>
               <span class="t">
                 <span class="ttl">{item.title}</span>
                 <span class="dsc">{stripMarkdown(item.summary)}</span>
               </span>
-              <span class={item.score > 80 ? 'tag-score hot' : 'tag-score'}>{item.score}</span>
+              <span class={item.score > 80 ? 'tag-score hot' : 'tag-score'}>{lang === 'zh' ? `简报分 ${item.score}` : `Briefing ${item.score}`}</span>
               <span class="arr">→</span>
             </a>
           ))}
@@ -154,14 +153,14 @@ const sectionZh: Record<string, string> = {
             </div>
             <div class="feed">
               {feedNews.map((item) => {
-                const s = primarySources.get(item.contentGroupId);
+                const ss = allSources.get(item.contentGroupId) ?? [];
                 return (
                 <a class="feed-row" href={`/${lang}/${item.category}/${item.slug}`}>
                   <span class="cat">NEWS</span>
                   <span class="t">
                     <span class="ttl">{item.title}</span>
                     <span class="dsc">{stripMarkdown(item.summary)}</span>
-                    {s && <span class="src">{t.source}：{s.publisher ?? s.title}</span>}
+                    {ss.length > 0 && <span class="src">{t.source}：{ss.map((s, i) => (<><a href={s.url} target="_blank" rel="noopener noreferrer">{s.publisher ?? s.title}</a>{i < ss.length - 1 ? '、' : ''}</>))}</span>}
                   </span>
                   <time>{formatDate(item.publishedAt)}</time>
                   <span class={item.heatScore > 80 ? 'tag-score hot' : 'tag-score'}>Heat {item.heatScore}</span>
@@ -200,7 +199,7 @@ const sectionZh: Record<string, string> = {
           </div>
           <a class="more" href={`/${lang}/tools`}>{t.moreReviews} →</a>
         </div>
-        <div class="cards">{tools.map((article) => <ArticleCard article={article} lang={lang} source={primarySources.get(article.contentGroupId)} />)}</div>
+        <div class="cards">{tools.map((article) => <ArticleCard article={article} lang={lang} sources={allSources.get(article.contentGroupId)} />)}</div>
       </section>
 
       <section class="blk" id="news">
@@ -214,14 +213,14 @@ const sectionZh: Record<string, string> = {
         </div>
         <div class="feed">
           {news.map((item) => {
-            const s = primarySources.get(item.contentGroupId);
+            const ss = allSources.get(item.contentGroupId) ?? [];
             return (
             <a class="feed-row" href={`/${lang}/${item.category}/${item.slug}`}>
               <span class="cat">NEWS</span>
               <span class="t">
                 <span class="ttl">{item.title}</span>
                 <span class="dsc">{stripMarkdown(item.summary)}</span>
-                {s && <span class="src">{t.source}：{s.publisher ?? s.title}</span>}
+                {ss.length > 0 && <span class="src">{t.source}：{ss.map((s, i) => (<><a href={s.url} target="_blank" rel="noopener noreferrer">{s.publisher ?? s.title}</a>{i < ss.length - 1 ? '、' : ''}</>))}</span>}
               </span>
               <time>{formatDate(item.publishedAt)}</time>
               <span class={item.heatScore > 80 ? 'tag-score hot' : 'tag-score'}>Heat {item.heatScore}</span>
@@ -241,7 +240,7 @@ const sectionZh: Record<string, string> = {
           </div>
           <a class="more" href={`/${lang}/resources`}>{t.resourceLibrary} →</a>
         </div>
-        <div class="cards">{resources.map((article) => <ArticleCard article={article} lang={lang} source={primarySources.get(article.contentGroupId)} />)}</div>
+        <div class="cards">{resources.map((article) => <ArticleCard article={article} lang={lang} sources={allSources.get(article.contentGroupId)} />)}</div>
       </section>
 
       <section class="blk" id="research">
@@ -253,7 +252,7 @@ const sectionZh: Record<string, string> = {
           </div>
           <a class="more" href={`/${lang}/research`}>{t.researchTopics} →</a>
         </div>
-        <div class="cards">{research.map((article) => <ArticleCard article={article} lang={lang} source={primarySources.get(article.contentGroupId)} />)}</div>
+        <div class="cards">{research.map((article) => <ArticleCard article={article} lang={lang} sources={allSources.get(article.contentGroupId)} />)}</div>
       </section>
 
       {prompts.length > 0 && (
@@ -266,7 +265,7 @@ const sectionZh: Record<string, string> = {
           </div>
           <a class="more" href={`/${lang}/prompts`}>{t.promptLibrary} →</a>
         </div>
-        <div class="cards">{prompts.map((article) => <ArticleCard article={article} lang={lang} source={primarySources.get(article.contentGroupId)} />)}</div>
+        <div class="cards">{prompts.map((article) => <ArticleCard article={article} lang={lang} sources={allSources.get(article.contentGroupId)} />)}</div>
       </section>
       )}
 

@@ -98,6 +98,19 @@ function feedType(feed: string): FeedType {
   return 'blog';
 }
 
+/** Authority of the page an item links to, by domain — same tiers as feeds. */
+function authorityOfUrl(raw: string): number {
+  try {
+    const host = new URL(raw).hostname.toLowerCase().replace(/^www\./, '');
+    if (host.endsWith('openai.com') || host.endsWith('blog.google') || host.endsWith('huggingface.co') || host.endsWith('github.blog') || host.endsWith('arxiv.org')) return AUTHORITY.official;
+    if (host.endsWith('techcrunch.com') || host.endsWith('theverge.com') || host.endsWith('technologyreview.com')) return AUTHORITY.mainstream;
+    if (host.endsWith('x.com') || host.endsWith('twitter.com') || host.endsWith('reddit.com') || host.endsWith('news.ycombinator.com')) return AUTHORITY.social;
+    return AUTHORITY.blog;
+  } catch {
+    return AUTHORITY.blog;
+  }
+}
+
 export function feedLabel(feed: string): string {
   if (feed.includes('hnrss.org')) return 'HN';
   if (feed.includes('techcrunch.com')) return 'TechCrunch';
@@ -324,9 +337,21 @@ function scoreStory(items: FeedItem[], category: Exclude<Category, 'personal'>, 
   }
   const feeds = [...new Set(items.map((i) => i.feed))];
   const coverage = feeds.length === 1 ? 10 : feeds.length === 2 ? 20 : feeds.length === 3 ? 25 : feeds.length === 4 ? 28 : 30;
-  const authFull = Math.max(...items.map((i) => AUTHORITY[feedType(i.feed)]));
-  // Authority counts in full only when corroborated by >= 2 independent sources.
-  const authority = feeds.length >= 2 ? authFull : Math.floor(authFull / 2);
+  // Authority of the story itself: the best feed it arrived through, or the
+  // best domain its items actually link to — whichever is higher. A major
+  // release often reaches us as an HN/Reddit post linking to the vendor's own
+  // announcement; judging it by the aggregator feed alone (social, 18, halved
+  // to 9) buried Gemini 4 Neon (2026-11-18, HN post → blog.google) in the
+  // 59-point single-source tie cluster, where the generator could not tell it
+  // apart from ordinary single-source stories.
+  const authFull = Math.max(
+    ...items.map((i) => AUTHORITY[feedType(i.feed)]),
+    ...items.map((i) => authorityOfUrl(i.url ?? '')),
+  );
+  // Authority counts in full when corroborated by >= 2 independent sources.
+  // Exception: a single official announcement is the primary source itself,
+  // so it keeps full authority even uncorroborated.
+  const authority = feeds.length >= 2 || authFull >= AUTHORITY.official ? authFull : Math.floor(authFull / 2);
   const points = items.map((i) => i.points).filter((p): p is number => typeof p === 'number');
   const engagement = points.length === 0 ? 4 : Math.max(...points) >= 300 ? 10 : Math.max(...points) >= 100 ? 6 : 3;
   const types = [...new Set(items.map((i) => feedType(i.feed)))];
