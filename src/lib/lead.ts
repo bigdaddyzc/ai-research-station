@@ -16,8 +16,20 @@ function parsePublishedAt(value: string | null): number | null {
   return Number.isNaN(ms) ? null : ms;
 }
 
-export function pickLeadArticle(articles: Article[], now = new Date()): Article | undefined {
+export function pickLeadArticle(articles: Article[], now = new Date(), briefingTopSlug?: string | null): Article | undefined {
   const cutoff = now.getTime() - LEAD_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  // The day's briefing #1 already ranked the stories by importance. When it
+  // links to a published article from the last 3 days, that article leads —
+  // this keeps the hero and the Top 5 from telling two different stories
+  // about what mattered most today. Otherwise fall back to the heat rule.
+  if (briefingTopSlug) {
+    const top = articles.find((article) => {
+      if (article.slug !== briefingTopSlug) return false;
+      const publishedMs = parsePublishedAt(article.publishedAt);
+      return publishedMs !== null && publishedMs >= cutoff;
+    });
+    if (top) return top;
+  }
   const candidates = articles
     .map((article) => ({ article, publishedMs: parsePublishedAt(article.publishedAt) }))
     .filter(

@@ -321,6 +321,33 @@ export async function getPrimarySources(db: D1Database | undefined, contentGroup
   return out;
 }
 
+/**
+ * Every source per content group, for a list of groups in ONE query.
+ * Homepage cards and feed rows used to show only the single most reliable
+ * source, so a reader saw "source: X / Reddit" next to a high Quality score
+ * and could not tell the article had other, stronger sources behind it.
+ */
+export async function getAllSources(db: D1Database | undefined, contentGroupIds: string[]): Promise<Map<string, Source[]>> {
+  const out = new Map<string, Source[]>();
+  const ids = [...new Set(contentGroupIds.filter(Boolean))];
+  if (ids.length === 0) return out;
+  requireDb(db);
+
+  const placeholders = ids.map(() => '?').join(',');
+  const result = await db
+    .prepare(`SELECT * FROM sources WHERE content_group_id IN (${placeholders}) ORDER BY reliability_score DESC`)
+    .bind(...ids)
+    .all<Record<string, unknown>>();
+
+  for (const row of result.results ?? []) {
+    const source = mapSource(row);
+    const list = out.get(source.contentGroupId) ?? [];
+    list.push(source);
+    out.set(source.contentGroupId, list);
+  }
+  return out;
+}
+
 export async function getResearchArtifactsForArticle(db: D1Database | undefined, articleId: string): Promise<ResearchArtifacts> {
   const empty: ResearchArtifacts = { claims: [], faqs: [], entities: [], updates: [] };
   requireDb(db);
