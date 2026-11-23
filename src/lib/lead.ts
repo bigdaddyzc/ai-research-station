@@ -5,8 +5,8 @@ import type { Article } from './types';
 // heat >= LEAD_HEAT_MIN, take the latest publishing day, then the
 // highest-heat article of that day. If nothing qualifies, fall back to
 // the latest article (the previous behaviour).
-export const LEAD_HEAT_MIN = 85;
-export const LEAD_WINDOW_DAYS = 3;
+export const LEAD_HEAT_MIN = 90;
+export const LEAD_WINDOW_DAYS = 2;
 
 function parsePublishedAt(value: string | null): number | null {
   if (!value) return null;
@@ -19,7 +19,7 @@ function parsePublishedAt(value: string | null): number | null {
 export function pickLeadArticle(articles: Article[], now = new Date(), briefingTopSlug?: string | null): Article | undefined {
   const cutoff = now.getTime() - LEAD_WINDOW_DAYS * 24 * 60 * 60 * 1000;
   // The day's briefing #1 already ranked the stories by importance. When it
-  // links to a published article from the last 3 days, that article leads —
+  // links to a published article from the last 2 days, that article leads —
   // this keeps the hero and the Top 5 from telling two different stories
   // about what mattered most today. Otherwise fall back to the heat rule.
   if (briefingTopSlug) {
