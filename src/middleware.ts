@@ -3,8 +3,16 @@ import { DbUnavailableError } from './lib/db';
 
 // Public pages are cached at the edge so crawler bursts don't re-run D1 list queries
 // (each uncached article view scanned ~2,700 D1 rows; free tier is 5M rows/day).
-const EDGE_TTL_SECONDS = 600;
-const CONTENT_CACHE_CONTROL = 'public, max-age=300, s-maxage=1800';
+// 2026-11-26: raised from 600s after D1 hit 86% of its daily limit — our own
+// monitors plus per-colo cache misses were the biggest consumer.
+const EDGE_TTL_SECONDS = 3600;
+const CONTENT_CACHE_CONTROL = 'public, max-age=600, s-maxage=3600';
+
+// Sitemap/RSS/llms.txt change at most once a day (publish), but crawlers
+// re-fetch them from every colo, so give them a much longer edge TTL.
+const SLOW_CACHE_PATHS = new Set(['/sitemap.xml', '/rss.xml', '/llms.txt']);
+const SLOW_EDGE_TTL_SECONDS = 86400;
+const SLOW_CACHE_CONTROL = 'public, max-age=3600, s-maxage=86400';
 
 // /v1/* paths are internal list-cache paths (acp-list-cache.internal/v1/<key>)
 // that must never be served from the public host. Return 404.
@@ -85,12 +93,15 @@ export const onRequest = defineMiddleware(async (context, next) => {
     response.headers.set('Cache-Control', 'no-store');
   } else if (response.status === 200 && isContentPath(pathname) && !response.headers.has('Cache-Control')) {
     response.headers.set('Cache-Control', CONTENT_CACHE_CONTROL);
+  } else if (response.status === 200 && SLOW_CACHE_PATHS.has(pathname) && !response.headers.has('Cache-Control')) {
+    response.headers.set('Cache-Control', SLOW_CACHE_CONTROL);
   }
 
   if (cacheable && cacheKey && response.status === 200 && !response.headers.has('Set-Cookie')) {
     const toStore = response.clone();
     const stored = new Response(toStore.body, toStore);
-    stored.headers.set('Cache-Control', `public, max-age=${EDGE_TTL_SECONDS}`);
+    const edgeTtl = SLOW_CACHE_PATHS.has(pathname) ? SLOW_EDGE_TTL_SECONDS : EDGE_TTL_SECONDS;
+    stored.headers.set('Cache-Control', `public, max-age=${edgeTtl}`);
     const put = cache!.put(cacheKey, stored);
     // Astro v6+ removed locals.runtime.ctx (reading it throws, which turned every cache miss into a 500/redirect).
     let ctx: { waitUntil?: (p: Promise<unknown>) => void } | undefined;
